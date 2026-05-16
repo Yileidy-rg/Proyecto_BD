@@ -1,0 +1,9 @@
+body { margin: 0; font-family: Arial, sans-serif; background: #f5f7fb; color: #172033; }
+.container { max-width: 1100px; margin: auto; padding: 24px; }
+.card { background: white; border-radius: 14px; padding: 18px; margin: 16px 0; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+select, input, button { padding: 10px; margin: 6px; border-radius: 8px; border: 1px solid #cbd5e1; }
+button { cursor: pointer; }
+.table-wrap { overflow: auto; max-height: 420px; }
+table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+th, td { border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: left; white-space: nowrap; }
+.actions a { display: inline-block; padding: 10px 14px; background: #172033; color: white; border-radius: 8px; text-decoration: none; }
