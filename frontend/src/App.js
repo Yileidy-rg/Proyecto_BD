@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 // ── API ───────────────────────────────────────────────────────────────────────
-const BASE = 'http://localhost:4000/api';
+const BASE = 'https://backend-bases-de-datos.onrender.com/api/clientes';
 
 const apiFetch = async (path, opts = {}) => {
   const res = await fetch(`${BASE}${path}`, {
