@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://backend-bases-de-datos.onrender.com/api/clientes',
+  baseURL: process.env.REACT_APP_API_URL || 'https://backend-bases-de-datos.onrender.com/api',
   timeout: 10000,
 });
 
