@@ -15,7 +15,7 @@
     "react-scripts": "5.0.1",
     "recharts": "^2.10.1"
   },
-  "proxy": "http://localhost:4000",
+  "proxy": "https://backend-bases-de-datos.onrender.com",
   "browserslist": {
     "production": [">0.2%", "not dead", "not op_mini all"],
     "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
