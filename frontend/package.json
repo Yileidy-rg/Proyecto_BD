@@ -1,18 +1,23 @@
 {
-  "name": "sicveca-frontend",
+  "name": "frontend",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview"
+    "start": "react-scripts start",
+    "dev": "react-scripts start",
+    "build": "react-scripts build"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "axios": "^1.7.4"
+    "axios": "^1.6.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "react-scripts": "5.0.1",
+    "recharts": "^2.10.1"
   },
-  "devDependencies": {}
+  "proxy": "http://localhost:4000",
+  "browserslist": {
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
+  }
 }
