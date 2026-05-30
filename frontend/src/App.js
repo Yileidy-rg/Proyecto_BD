@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 // ── API ───────────────────────────────────────────────────────────────────────
-const BASE = 'https://backend-bases-de-datos.onrender.com/api';
+const BASE = 'http://localhost:4000/api';
 
 const apiFetch = async (path, opts = {}) => {
   const res = await fetch(`${BASE}${path}`, {
@@ -51,6 +51,30 @@ const fmt     = (n) => new Intl.NumberFormat('es-CR', { style:'currency', curren
 const fmtDate = (d) => { try { return d ? new Date(d).toLocaleDateString('es-CR') : '—'; } catch { return '—'; } };
 
 // ── Atoms ─────────────────────────────────────────────────────────────────────
+
+const BienvenidaClientes = () => (
+  <div style={{ textAlign:'center', padding:'48px 24px', color:C.textMid }}>
+    <div style={{ fontSize:48, marginBottom:16 }}>🏦</div>
+    <div style={{ fontSize:22, fontWeight:900, color:C.text, marginBottom:8 }}>
+      SICVECA — Sistema de Control y Verificación de Clientes
+    </div>
+    <div style={{ fontSize:14, color:C.textMuted, marginBottom:24 }}>
+      Proyecto Bases de Datos · Grupo 2 · I Semestre 2026
+    </div>
+    <div style={{ display:'flex', justifyContent:'center', gap:12, flexWrap:'wrap', marginBottom:24 }}>
+      {['Carlos Rodríguez','Darnell Estrada','Meylin López','Reychell Acuña', 'Yileidy Rivera'].map(nombre => (
+        <span key={nombre} style={{
+          background: C.accentLight, color: C.accent,
+          border: `1px solid ${C.accent}30`, borderRadius: 20,
+          padding:'6px 16px', fontSize:13, fontWeight:600
+        }}>{nombre}</span>
+      ))}
+    </div>
+    <div style={{ fontSize:13, color:C.textMuted }}>
+      🔍 Escribí un nombre o cédula para buscar en el padrón
+    </div>
+  </div>
+);
 
 const Spinner = () => (
   <div style={{ display:'flex', justifyContent:'center', padding:40 }}>
@@ -133,10 +157,10 @@ const Select = ({ label, value, onChange, options, required }) => (
   </div>
 );
 
-const Table = ({ cols, rows, loading, error, onRetry, emptyMsg, emptyIcon }) => {
+const Table = ({ cols, rows, loading, error, onRetry, emptyMsg, emptyIcon, emptyComponent }) => {
   if (loading) return <Spinner />;
   if (error)   return <div style={{ padding:16 }}><ErrorBox msg={error} onRetry={onRetry} /></div>;
-  if (!rows?.length) return <EmptyState msg={emptyMsg} icon={emptyIcon} />;
+  if (!rows?.length) return emptyComponent || <EmptyState msg={emptyMsg} icon={emptyIcon} />;
   return (
     <div style={{ overflowX:'auto' }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
@@ -253,76 +277,126 @@ const FORM_CLIENTE_INIT = {
   provincia:'', actividad_economica:'', justificacion_ingreso:'', ingreso_mensual:'', es_pep:'0', es_sujeto_obligado:'0', es_residente:'1'
 };
 
-function Clientes({ toast }) {
+  function Clientes({ toast, setSection, setRiesgoId }) {
+  const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [rows, setRows]         = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+
   const [search, setSearch]     = useState('');
   const [sugg, setSugg]         = useState([]);
+  const [filtered, setFiltered] = useState(null); // null = mostrar todos
+
   const [modal, setModal]       = useState(false);
   const [form, setForm]         = useState(FORM_CLIENTE_INIT);
   const [editId, setEditId]     = useState(null);
   const [saving, setSaving]     = useState(false);
-  const timerRef                = useRef();
 
+  const timerRef = useRef();
+
+  
   const load = useCallback(async () => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
       const r = await API.get('/clientes');
       setRows(r.data || []);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // useEffect(() => { load(); }, [load]); 
 
-  // Autocompletado con debounce
   const onSearch = (v) => {
-    setSearch(v); clearTimeout(timerRef.current);
-    if (v.length < 2) { setSugg([]); return; }
+    setSearch(v);
+    clearTimeout(timerRef.current);
+
+    // Si borra el campo, restaurar tabla completa
+    if (!v.trim()) {
+      setSugg([]);
+      setFiltered(null);
+      return;
+    }
+
+    if (v.length < 2) {
+      setSugg([]);
+      return;
+    }
+
     timerRef.current = setTimeout(async () => {
       try {
-        const r = await API.get(`/clientes/buscar?q=${encodeURIComponent(v)}&limit=5`);
-        setSugg(r.suggestions || []);
-      } catch { setSugg([]); }
-    }, 300);
+        const r = await API.get(
+          `/clientes/buscar/inteligente?termino=${encodeURIComponent(v)}&limite=20`
+        );
+
+        const data =
+          Array.isArray(r.data?.data) ? r.data.data :
+          Array.isArray(r.data)       ? r.data       :
+          [];
+
+        setSugg(data);
+      } catch (e) {
+        console.error(e);
+        setSugg([]);
+      }
+    }, 250);
   };
 
-  const filtered = rows.filter(r => {
-    if (!search) return true;
-    const t = search.toLowerCase();
-    return [r.nombre, r.primer_apellido, r.cedula, r.email].some(f => String(f||'').toLowerCase().includes(t));
-  });
+  // ✅ FIX 2: al seleccionar sugerencia, filtrar la tabla con ese cliente
+  const selectClient = (c) => {
+    const fullName = `${c.nombre} ${c.primer_apellido} ${c.segundo_apellido}`.trim();
+    setSearch(fullName);
+    setSugg([]);
+    setFiltered([c]); // muestra solo ese cliente en la tabla
+  };
+
+  const clearSearch = () => {
+    setSearch('');
+    setSugg([]);
+    setFiltered(null);
+  };
 
   const openCreate = () => { setForm(FORM_CLIENTE_INIT); setEditId(null); setModal(true); };
-  const openEdit   = (r)  => {
+
+  const openEdit = (r) => {
     setForm({
-      nombre: r.nombre||'', primer_apellido: r.primer_apellido||'', segundo_apellido: r.segundo_apellido||'',
-      cedula: r.cedula||'', email: r.email||'', telefono: r.telefono||'',
+      nombre: r.nombre || '',
+      primer_apellido: r.primer_apellido || '',
+      segundo_apellido: r.segundo_apellido || '',
+      cedula: r.cedula || '',
+      email: r.email || '',
+      telefono: r.telefono || '',
       fecha_nacimiento: r.fecha_nacimiento ? r.fecha_nacimiento.split('T')[0] : '',
-      tipo_cliente: String(r.tipo_cliente||1),
-      provincia: r.provincia ? String(r.provincia) : '',
+      tipo_cliente: String(r.tipo_cliente || 1),
+      provincia: String(r.provincia || ''),
       actividad_economica: r.actividad_economica || '',
-      justificacion_ingreso: r.justificacion_ingreso ? String(r.justificacion_ingreso) : '',
+      justificacion_ingreso: String(r.justificacion_ingreso || ''),
       ingreso_mensual: r.ingreso_mensual ?? '',
       es_pep: String(Number(Boolean(r.es_pep))),
       es_sujeto_obligado: String(Number(Boolean(r.es_sujeto_obligado))),
       es_residente: String(Number(r.es_residente ?? 1)),
     });
-    setEditId(r.id_cliente); setModal(true);
+    setEditId(r.id_cliente);
+    setModal(true);
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm('¿Eliminar este cliente?')) return;
-    try { await API.delete(`/clientes/${id}`); toast('Cliente eliminado', 'success'); load(); }
-    catch (e) { toast(e.message, 'error'); }
+    try {
+      await API.delete(`/clientes/${id}`);
+      toast('Cliente eliminado', 'success');
+      load();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
   };
 
   const handleSubmit = async () => {
     if (!form.nombre || !form.primer_apellido || !form.cedula)
-      return toast('Nombre, primer apellido y cédula son requeridos', 'error');
-    if (!form.provincia || !form.actividad_economica || !form.justificacion_ingreso || form.ingreso_mensual === '')
-      return toast('Provincia, actividad económica, fuente de ingreso e ingreso mensual son requeridos para riesgo', 'error');
+      return toast('Campos requeridos', 'error');
     setSaving(true);
     try {
       const payload = {
@@ -335,116 +409,210 @@ function Clientes({ toast }) {
         es_sujeto_obligado: form.es_sujeto_obligado === '1',
         es_residente: form.es_residente === '1',
       };
-      if (editId) { await API.put(`/clientes/${editId}`, payload); toast('Cliente actualizado', 'success'); }
-      else        { await API.post('/clientes', payload);           toast('Cliente creado', 'success'); }
-      setModal(false); load();
-    } catch (e) { toast(e.message, 'error'); }
-    finally { setSaving(false); }
+      if (editId) {
+        await API.put(`/clientes/${editId}`, payload);
+        toast('Cliente actualizado', 'success');
+      } else {
+        await API.post('/clientes', payload);
+        toast('Cliente creado', 'success');
+      }
+      setModal(false);
+      load();
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
+  // ✅ FIX 3: la tabla muestra `filtered` si hay búsqueda, si no muestra todos
+  const tableRows = filtered !== null ? filtered : rows;
+
   return (
     <div>
-      <SectionHeader title="👤 Clientes"
-        action={<Btn onClick={openCreate}>+ Nuevo Cliente</Btn>} />
+      <SectionHeader
+        title="👤 Clientes"
+        action={<Btn onClick={openCreate}>+ Nuevo Cliente</Btn>}
+      />
 
-      {/* Búsqueda inteligente */}
-      <div style={{ position:'relative', marginBottom:20 }}>
-        <input value={search} onChange={e => onSearch(e.target.value)}
-          placeholder="🔍  Buscar por nombre, cédula o email…"
-          style={{ width:'100%', background:C.surface, border:`1px solid ${C.borderDark}`, borderRadius:10,
-            padding:'11px 16px', color:C.text, fontSize:14, outline:'none', boxSizing:'border-box',
-            fontFamily:'inherit', boxShadow:'0 1px 3px #0000000a' }}
-          onFocus={e => e.target.style.borderColor=C.accent}
-          onBlur={e  => { e.target.style.borderColor=C.borderDark; setTimeout(()=>setSugg([]),150); }}
-        />
+      {/* 🔍 SEARCH INPUT */}
+      <div style={{ position: 'relative', marginBottom: 20 }}>
+        <div style={{ position: 'relative' }}>
+          <input
+            value={search}
+            onChange={e => onSearch(e.target.value)}
+            placeholder="🔍 Buscar cliente por nombre, cédula..."
+            style={{
+              width: '100%',
+              padding: '11px 40px 11px 16px',
+              borderRadius: 10,
+              border: `1px solid ${C.borderDark}`,
+              fontSize: 14,
+              outline: 'none',
+              boxSizing: 'border-box',
+              fontFamily: 'inherit',
+              background: C.surface,
+              color: C.text,
+            }}
+          />
+          {/* Botón X para limpiar */}
+          {search && (
+            <button
+              onClick={clearSearch}
+              style={{
+                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: C.textMuted, fontSize: 16, lineHeight: 1,
+              }}
+            >✕</button>
+          )}
+        </div>
+
+        {/* Dropdown sugerencias */}
         {sugg.length > 0 && (
-          <div style={{ position:'absolute', top:'100%', left:0, right:0, background:C.surface,
-            border:`1px solid ${C.border}`, borderRadius:8, zIndex:100, marginTop:4,
-            boxShadow:'0 8px 24px #0000001a' }}>
-            {sugg.map(s => (
-              <div key={s.value} onClick={() => { setSearch(s.label.split(' — ')[0]); setSugg([]); }}
-                style={{ padding:'10px 16px', cursor:'pointer', fontSize:13, color:C.text,
-                  borderBottom:`1px solid ${C.border}` }}
-                onMouseOver={e => e.currentTarget.style.background=C.surfaceAlt}
-                onMouseOut={e  => e.currentTarget.style.background=C.surface}>
-                {s.label}
-              </div>
-            ))}
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0,
+            background: '#fff', border: `1px solid ${C.border}`,
+            borderRadius: 8, zIndex: 1000, marginTop: 4,
+            boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
+          }}>
+           {sugg.map((s, i) => (
+  <div
+    key={i}
+   onClick={() => {
+  setSearch(s.D_nombre_completo || '');
+  setSugg([]);
+  setClienteSeleccionado(s);
+}}
+    style={{
+      padding: '10px 14px',
+      cursor: 'pointer',
+      borderBottom: '1px solid #eee'
+    }}
+    onMouseOver={e => e.currentTarget.style.background = '#f5f5f5'}
+    onMouseOut={e => e.currentTarget.style.background = '#fff'}
+  >
+    <div style={{ fontWeight: 600, color: '#0f172a' }}>
+      {s.D_nombre_completo || '—'}
+    </div>
+    <div style={{ fontSize: 12, color: '#666' }}>
+      Cédula: {s.D_numero_identificacion || '—'}
+      {s.T_tipo_persona ? ` · ${s.T_tipo_persona}` : ''}
+    </div>
+  </div>
+))}
           </div>
         )}
       </div>
 
+      {/* Indicador de filtro activo */}
+      {clienteSeleccionado && (
+  <div style={{
+    display:'flex', alignItems:'center', justifyContent:'space-between',
+    padding:'14px 18px', marginBottom:16,
+    background: C.accentLight, border:`1px solid ${C.accent}30`,
+    borderRadius:10, flexWrap:'wrap', gap:12
+  }}>
+    <div>
+      <div style={{ fontWeight:800, fontSize:15, color:C.text }}>
+        {clienteSeleccionado.D_nombre_completo}
+      </div>
+      <div style={{ fontSize:12, color:C.textMid, marginTop:3 }}>
+        Cédula: {clienteSeleccionado.D_numero_identificacion} · ID: {clienteSeleccionado.C_cliente}
+      </div>
+    </div>
+    <div style={{ display:'flex', gap:8 }}>
+      <Btn variant="success" onClick={() => {
+        setRiesgoId(String(clienteSeleccionado.C_cliente));
+        setSection('riesgo');
+      }}>📊 Evaluar Riesgo</Btn>
+      <Btn variant="ghost" onClick={() => {
+        setClienteSeleccionado(null);
+        setSearch('');
+      }}>✕ Quitar</Btn>
+    </div>
+  </div>
+)}
+      {filtered !== null && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
+          padding: '8px 14px', background: C.accentLight, borderRadius: 8,
+          fontSize: 13, color: C.accent, fontWeight: 600
+        }}>
+          <span>🔍 Mostrando resultado para: "{search}"</span>
+          <button onClick={clearSearch} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: C.accent, fontWeight: 800, fontSize: 14
+          }}>✕ Ver todos</button>
+        </div>
+      )}
+
+      {/* 📋 TABLA */}
       <Card>
-        <Table loading={loading} error={error} onRetry={load}
-          emptyMsg="No hay clientes registrados" emptyIcon="👤"
+        <Table
+          loading={loading}
+  error={error}
+  onRetry={load}
+  rows={tableRows}
+  emptyMsg=""
+  emptyIcon=""
+  emptyComponent={filtered !== null ? undefined : <BienvenidaClientes />}
           cols={[
-            { key:'id_cliente', label:'ID' },
-            { key:'nombre',     label:'Nombre completo', render: r => `${r.nombre||''} ${r.primer_apellido||''} ${r.segundo_apellido||''}`.trim() },
-            { key:'cedula',     label:'Cédula' },
-            { key:'email',      label:'Email' },
-            { key:'telefono',   label:'Teléfono' },
-            { key:'tipo_cliente', label:'Tipo', render: r =>
-              <Badge color={r.tipo_cliente===2?'#7c3aed':C.accent} bg={r.tipo_cliente===2?'#ede9fe':C.accentLight}>
-                {r.tipo_cliente===2?'Jurídico':'Físico'}
-              </Badge> },
-            { key:'acciones', label:'', render: r => (
-              <div style={{ display:'flex', gap:6 }}>
-                <Btn small variant="ghost" onClick={() => openEdit(r)}>✏️ Editar</Btn>
-                <Btn small variant="danger" onClick={() => handleDelete(r.id_cliente)}>🗑️</Btn>
-              </div>
-            )},
+            { key: 'id_cliente', label: 'ID' },
+            {
+              key: 'nombre', label: 'Nombre',
+              render: r => `${r.nombre || ''} ${r.primer_apellido || ''} ${r.segundo_apellido || ''}`.trim()
+            },
+            { key: 'cedula', label: 'Cédula' },
+            { key: 'email', label: 'Email' },
+            {
+              key: 'acciones', label: '',
+              render: r => (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <Btn small onClick={() => openEdit(r)}>✏️</Btn>
+                  <Btn small variant="danger" onClick={() => handleDelete(r.id_cliente)}>🗑️</Btn>
+                </div>
+              )
+            }
           ]}
-          rows={filtered}
         />
-        {!loading && !error && <div style={{ padding:'10px 14px', fontSize:12, color:C.textMuted, borderTop:`1px solid ${C.border}` }}>{filtered.length} registro(s)</div>}
+        {!loading && !error && tableRows.length > 0 && (
+          <div style={{ padding: '8px 14px', fontSize: 12, color: C.textMuted, borderTop: `1px solid ${C.border}` }}>
+            {tableRows.length} cliente(s)
+          </div>
+        )}
       </Card>
 
-      <Modal open={modal} onClose={() => setModal(false)} title={editId ? 'Editar Cliente' : 'Nuevo Cliente'} width={720}>
-        <div style={{ fontSize:13, color:C.textMid, background:C.surfaceAlt, border:`1px solid ${C.border}`, borderRadius:10, padding:12, marginBottom:16 }}>
-          <strong style={{ color:C.text }}>Datos para riesgo:</strong> estos campos permiten calcular el nivel de riesgo del cliente.
-          <br />
-          <strong>PEP</strong> significa Persona Expuesta Políticamente: alguien que ocupa o ha ocupado un cargo público importante, o una persona cercana a ella.
-          <br />
-          <strong>Sujeto obligado</strong> es una persona o entidad que por su actividad debe cumplir obligaciones de prevención de legitimación de capitales.
-          <br />
-          <strong>Residente</strong> indica si la persona reside en Costa Rica.
+      {/* MODAL */}
+      <Modal open={modal} onClose={() => setModal(false)} title={editId ? 'Editar Cliente' : 'Nuevo Cliente'}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+          <Input label="Nombre" value={form.nombre} onChange={v => f('nombre', v)} required />
+          <Input label="Primer Apellido" value={form.primer_apellido} onChange={v => f('primer_apellido', v)} required />
+          <Input label="Segundo Apellido" value={form.segundo_apellido} onChange={v => f('segundo_apellido', v)} />
+          <Input label="Cédula" value={form.cedula} onChange={v => f('cedula', v)} required />
+          <Input label="Email" type="email" value={form.email} onChange={v => f('email', v)} />
+          <Input label="Teléfono" value={form.telefono} onChange={v => f('telefono', v)} />
+          <Input label="Fecha Nacimiento" type="date" value={form.fecha_nacimiento} onChange={v => f('fecha_nacimiento', v)} />
+          <Select label="Tipo Cliente" value={form.tipo_cliente} onChange={v => f('tipo_cliente', v)}
+            options={[{ value: '1', label: 'Físico' }, { value: '2', label: 'Jurídico' }]} />
+          <Select label="Provincia" value={form.provincia} onChange={v => f('provincia', v)} options={PROVINCIAS} />
+          <Select label="Actividad Económica" value={form.actividad_economica} onChange={v => f('actividad_economica', v)} options={ACTIVIDADES_ECONOMICAS} />
+          <Select label="Fuente de Ingreso" value={form.justificacion_ingreso} onChange={v => f('justificacion_ingreso', v)} options={JUSTIFICACIONES_INGRESO} />
+          <Input label="Ingreso Mensual (₡)" type="number" value={form.ingreso_mensual} onChange={v => f('ingreso_mensual', v)} />
+          <Select label="¿Es PEP?" value={form.es_pep} onChange={v => f('es_pep', v)} options={SI_NO} />
+          <Select label="¿Sujeto Obligado?" value={form.es_sujeto_obligado} onChange={v => f('es_sujeto_obligado', v)} options={SI_NO} />
+          <Select label="¿Es Residente?" value={form.es_residente} onChange={v => f('es_residente', v)} options={RESIDENTE_OPCIONES} />
         </div>
-
-        <h4 style={{ margin:'0 0 10px', color:C.text }}>Datos básicos</h4>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
-          <Input label="Nombre"           value={form.nombre}           onChange={v=>f('nombre',v)}           required />
-          <Input label="Primer Apellido"  value={form.primer_apellido}  onChange={v=>f('primer_apellido',v)}  required />
-          <Input label="Segundo Apellido" value={form.segundo_apellido} onChange={v=>f('segundo_apellido',v)} />
-          <Input label="Cédula"           value={form.cedula}           onChange={v=>f('cedula',v)}           required />
-          <Input label="Email"   type="email" value={form.email}    onChange={v=>f('email',v)} />
-          <Input label="Teléfono"         value={form.telefono}         onChange={v=>f('telefono',v)} />
-          <Input label="Fecha Nacimiento" type="date" value={form.fecha_nacimiento} onChange={v=>f('fecha_nacimiento',v)} />
-          <Select label="Tipo de Cliente" value={form.tipo_cliente} onChange={v=>f('tipo_cliente',v)}
-            options={[{value:'1',label:'Físico'},{value:'2',label:'Jurídico'}]} />
-        </div>
-
-        <h4 style={{ margin:'12px 0 10px', color:C.text }}>Perfil de riesgo</h4>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0 16px' }}>
-          <Select label="Provincia" value={form.provincia} onChange={v=>f('provincia',v)} options={PROVINCIAS} required />
-          <Select label="Actividad económica" value={form.actividad_economica} onChange={v=>f('actividad_economica',v)} options={ACTIVIDADES_ECONOMICAS} required />
-          <Select label="Fuente de ingreso" value={form.justificacion_ingreso} onChange={v=>f('justificacion_ingreso',v)} options={JUSTIFICACIONES_INGRESO} required />
-          <Input label="Ingreso mensual" type="number" value={form.ingreso_mensual} onChange={v=>f('ingreso_mensual',v)} required />
-          <Select label="¿Es PEP?" value={form.es_pep} onChange={v=>f('es_pep',v)} options={SI_NO} />
-          <Select label="¿Es sujeto obligado?" value={form.es_sujeto_obligado} onChange={v=>f('es_sujeto_obligado',v)} options={SI_NO} />
-          <Select label="¿Es residente?" value={form.es_residente} onChange={v=>f('es_residente',v)} options={RESIDENTE_OPCIONES} />
-        </div>
-
-        <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
           <Btn variant="ghost" onClick={() => setModal(false)}>Cancelar</Btn>
-          <Btn onClick={handleSubmit} disabled={saving}>{saving ? 'Guardando…' : editId ? 'Actualizar' : 'Crear Cliente'}</Btn>
+          <Btn onClick={handleSubmit} disabled={saving}>{saving ? 'Guardando…' : editId ? 'Actualizar' : 'Crear'}</Btn>
         </div>
       </Modal>
     </div>
   );
 }
-
 // ── Sección genérica CRUD ─────────────────────────────────────────────────────
 function CrudSection({ title, icon, endpoint, idField, cols, formFields, formInit, validateFn, emptyMsg }) {
   const [rows, setRows]       = useState([]);
@@ -608,15 +776,16 @@ function Transacciones({ toast }) {
 }
 
 // ── Sección Riesgo ────────────────────────────────────────────────────────────
-function Riesgo({ toast }) {
+function Riesgo({ toast, clienteIdInicial }) {
   const [historial, setHistorial] = useState([]);
   const [loadingH, setLoadingH]   = useState(true);
   const [errorH, setErrorH]       = useState('');
-  const [idCliente, setIdCliente] = useState('');
+  const [idCliente, setIdCliente] = useState(clienteIdInicial || '');
   const [resultado, setResultado] = useState(null);
   const [evaluando, setEvaluando] = useState(false);
 
   const loadHistorial = useCallback(async () => {
+
     setLoadingH(true); setErrorH('');
     try { const r = await API.get('/riesgo'); setHistorial(r.data||[]); }
     catch (e) { setErrorH(e.message); }
@@ -854,6 +1023,7 @@ const NAV = [
 export default function App() {
   const [section, setSection] = useState('clientes');
   const [toast, setToast]     = useState({ msg:'', type:'' });
+  const [riesgoId, setRiesgoId] = useState(''); // ← agregar esto
   const showToast = (msg, type='success') => setToast({ msg, type });
 
   // Campos para cada sección CRUD genérica
@@ -894,9 +1064,9 @@ export default function App() {
 
   const renderSection = () => {
     switch (section) {
-      case 'clientes':      return <Clientes      toast={showToast} />;
+      case 'clientes': return <Clientes toast={showToast} setSection={setSection} setRiesgoId={setRiesgoId} />;
       case 'transacciones': return <Transacciones toast={showToast} />;
-      case 'riesgo':        return <Riesgo        toast={showToast} />;
+      case 'riesgo':   return <Riesgo   toast={showToast} clienteIdInicial={riesgoId} />;
       case 'escenarios':    return <Escenarios    toast={showToast} />;
       case 'xml':           return <Xml           toast={showToast} />;
       case 'productos':     return <CrudSection endpoint="productos"  idField="id_producto"  icon="📦" title="Productos"  formFields={PRODUCTO_FIELDS} formInit={toInit(PRODUCTO_FIELDS)}

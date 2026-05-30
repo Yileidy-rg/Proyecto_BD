@@ -12,11 +12,11 @@ const config = {
   password: process.env.DB_PASSWORD || 'Rey12345',
   port:     parseInt(process.env.DB_PORT || '1433'),
   options: {
-    encrypt:                true,
-    trustServerCertificate: false,
-    enableArithAbort:       true,
-    connectTimeout:         30000,
-    requestTimeout:         30000,
+    encrypt: false,
+  trustServerCertificate: true,
+  enableArithAbort: true,
+  connectTimeout: 30000,
+  requestTimeout: 30000,
   },
   pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
 };
@@ -158,33 +158,28 @@ const db = {
       .input('__id', sql.Int, parseInt(id))
       .query(`DELETE FROM dbo.${table} WHERE ${idField} = @__id`);
   },
+searchClientes: async (q, limit = 20) => {
+  const p = await getPool();
+  const req = p.request();
 
-  searchClientes: async (q, cedula, nombre, provincia, canton, distrito, limit = 20) => {
-    const p = await getPool();
-    const req = p.request();
-    const conds = [];
+  req.input('q', sql.NVarChar, `${q}%`);
+  req.input('lim', sql.Int, limit);
 
-    if (q) {
-      req.input('q', sql.NVarChar, `%${q}%`);
-      conds.push(`(
-        CAST(cedula           AS NVARCHAR(50))  COLLATE Latin1_General_CI_AI LIKE @q OR
-        CAST(nombre           AS NVARCHAR(200)) COLLATE Latin1_General_CI_AI LIKE @q OR
-        CAST(primer_apellido  AS NVARCHAR(200)) COLLATE Latin1_General_CI_AI LIKE @q OR
-        CAST(segundo_apellido AS NVARCHAR(200)) COLLATE Latin1_General_CI_AI LIKE @q OR
-        CAST(email            AS NVARCHAR(200)) COLLATE Latin1_General_CI_AI LIKE @q
-      )`);
-    }
-    if (cedula) { req.input('ced', sql.NVarChar, `%${cedula}%`); conds.push(`CAST(cedula AS NVARCHAR(50)) LIKE @ced`); }
-    if (nombre) { req.input('nom', sql.NVarChar, `%${nombre}%`); conds.push(`(nombre COLLATE Latin1_General_CI_AI LIKE @nom OR primer_apellido COLLATE Latin1_General_CI_AI LIKE @nom)`); }
-    if (provincia) { req.input('prov', sql.Int, parseInt(provincia)); conds.push(`id_provincia = @prov`); }
-    if (canton)    { req.input('cant', sql.Int, parseInt(canton));    conds.push(`id_canton = @cant`); }
-    if (distrito)  { req.input('dist', sql.Int, parseInt(distrito));  conds.push(`id_distrito = @dist`); }
-
-    req.input('lim', sql.Int, parseInt(limit));
-    const where   = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
-    const orderBy = q ? `ORDER BY CASE WHEN cedula COLLATE Latin1_General_CI_AI LIKE @q THEN 0 ELSE 1 END` : `ORDER BY id_cliente`;
-
-    return req.query(`SELECT TOP (@lim) * FROM dbo.CLIENTE ${where} ${orderBy}`);
+  return req.query(`
+    SELECT TOP (@lim)
+      C_cliente,
+      D_numero_identificacion,
+      D_nombre_1,
+      D_apellido_1,
+      D_apellido_2
+    FROM Cliente
+    WHERE
+      D_nombre_1 LIKE @q
+      OR D_apellido_1 LIKE @q
+      OR D_apellido_2 LIKE @q
+      OR D_numero_identificacion LIKE @q
+    ORDER BY D_nombre_1
+  `);
   },
 };
 
