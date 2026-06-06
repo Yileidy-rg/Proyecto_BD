@@ -2,7 +2,7 @@
   "name": "backend",
   "version": "1.0.0",
   "private": true,
-  "description": "API Node.js + Express — SQL Azure",
+  "description": "API Node.js + Express — SQL Server",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

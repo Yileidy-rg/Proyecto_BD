@@ -65,16 +65,16 @@ app.use((err, req, res, next) => {
   console.error('❌ Error:', err.message);
   if (process.env.NODE_ENV !== 'production') console.error(err.stack);
 
-  // Errores comunes de SQL Azure con mensajes claros
+  // Errores comunes de SQL Server con mensajes claros
   let mensaje = err.message || 'Error interno del servidor';
   if (err.message?.includes('Invalid object name'))
     mensaje = `Tabla no encontrada en la BD: ${err.message}. Verifica /api/debug/tablas`;
   if (err.message?.includes('Invalid column name'))
     mensaje = `Columna no encontrada: ${err.message}. Verifica /api/debug/columnas/<tabla>`;
   if (err.message?.includes('Login failed'))
-    mensaje = 'Error de autenticación SQL Azure. Verifica usuario/contraseña en .env';
+    mensaje = 'Error de autenticación SQL Server. Verifica usuario/contraseña en .env';
   if (err.message?.includes('ECONNREFUSED') || err.message?.includes('ESOCKET'))
-    mensaje = 'No se puede conectar a SQL Azure. Verifica el servidor y el firewall en Azure Portal';
+    mensaje = 'No se puede conectar a SQL Server. Verifica el servidor y la red';
 
   res.status(err.status || 500).json({ error: mensaje });
 });

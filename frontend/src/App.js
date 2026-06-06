@@ -294,6 +294,34 @@ const FORM_CLIENTE_INIT = {
 
   const timerRef = useRef();
 
+  const clean = (value) => (value ?? '').toString().trim();
+
+  const mapClienteBusqueda = (s) => ({
+    id_cliente: s.C_cliente ?? s.id_cliente,
+    nombre: clean(s.D_nombre_1 ?? s.nombre),
+    segundo_nombre: clean(s.D_nombre_2 ?? s.segundo_nombre),
+    primer_apellido: clean(s.D_apellido_1 ?? s.primer_apellido),
+    segundo_apellido: clean(s.D_apellido_2 ?? s.segundo_apellido),
+    cedula: clean(s.D_numero_identificacion ?? s.cedula),
+    email: clean(s.D_correo_electronico ?? s.email),
+    telefono: clean(s.D_telefono ?? s.telefono),
+    fecha_nacimiento: s.F_nacimiento_const ?? s.fecha_nacimiento ?? '',
+    tipo_cliente: s.C_tipo_persona ?? s.tipo_cliente ?? 1,
+    provincia: s.C_provincia ?? s.provincia ?? '',
+    canton: s.C_canton ?? s.canton ?? '',
+    distrito: s.C_distrito ?? s.distrito ?? '',
+    actividad_economica: s.D_cod_actividad ?? s.actividad_economica ?? '',
+    justificacion_ingreso: s.C_justificacion_ingreso ?? s.justificacion_ingreso ?? '',
+    ingreso_mensual: s.M_ingreso_mensual ?? s.ingreso_mensual ?? '',
+    es_pep: s.B_es_pep ?? s.es_pep,
+    es_sujeto_obligado: s.B_es_sujeto_obligado ?? s.es_sujeto_obligado,
+    es_residente: s.B_es_residente ?? s.es_residente,
+    estado: clean(s.D_estado_cliente ?? s.estado),
+    D_nombre_completo: clean(s.D_nombre_completo),
+    lugar: [s.D_provincia, s.D_canton, s.D_distrito].map(clean).filter(Boolean).join(', '),
+    original: s,
+  });
+
   
   const load = useCallback(async () => {
     setLoading(true);
@@ -311,52 +339,58 @@ const FORM_CLIENTE_INIT = {
   // useEffect(() => { load(); }, [load]); 
 
   const onSearch = (v) => {
-    setSearch(v);
-    clearTimeout(timerRef.current);
+  setSearch(v);
+  clearTimeout(timerRef.current);
 
-    // Si borra el campo, restaurar tabla completa
-    if (!v.trim()) {
+  if (!v.trim()) {
+    setSugg([]);
+    setFiltered(null);
+    setClienteSeleccionado(null);
+    return;
+  }
+
+  setClienteSeleccionado(null);
+
+  timerRef.current = setTimeout(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const r = await API.get(
+        `/clientes/buscar/inteligente?termino=${encodeURIComponent(v.trim())}&limite=20`
+      );
+
+      const data = Array.isArray(r.data) ? r.data : [];
+
+      const mapeados = data.map(mapClienteBusqueda);
+
+      setSugg(data);
+      setFiltered(mapeados);
+    } catch (e) {
+      console.error(e);
+      setError(e.message);
       setSugg([]);
-      setFiltered(null);
-      return;
+      setFiltered([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (v.length < 2) {
-      setSugg([]);
-      return;
-    }
-
-    timerRef.current = setTimeout(async () => {
-      try {
-        const r = await API.get(
-          `/clientes/buscar/inteligente?termino=${encodeURIComponent(v)}&limite=20`
-        );
-
-        const data =
-          Array.isArray(r.data?.data) ? r.data.data :
-          Array.isArray(r.data)       ? r.data       :
-          [];
-
-        setSugg(data);
-      } catch (e) {
-        console.error(e);
-        setSugg([]);
-      }
-    }, 250);
-  };
+  }, 300);
+};
 
   // ✅ FIX 2: al seleccionar sugerencia, filtrar la tabla con ese cliente
   const selectClient = (c) => {
-    const fullName = `${c.nombre} ${c.primer_apellido} ${c.segundo_apellido}`.trim();
+    const mapped = mapClienteBusqueda(c);
+    const fullName = mapped.D_nombre_completo || `${mapped.nombre} ${mapped.primer_apellido} ${mapped.segundo_apellido}`.trim();
     setSearch(fullName);
     setSugg([]);
-    setFiltered([c]); // muestra solo ese cliente en la tabla
+    setClienteSeleccionado(c);
+    setFiltered([mapped]); // muestra solo ese cliente en la tabla
   };
 
   const clearSearch = () => {
     setSearch('');
     setSugg([]);
     setFiltered(null);
+    setClienteSeleccionado(null);
   };
 
   const openCreate = () => { setForm(FORM_CLIENTE_INIT); setEditId(null); setModal(true); };
@@ -481,11 +515,7 @@ const FORM_CLIENTE_INIT = {
            {sugg.map((s, i) => (
   <div
     key={i}
-   onClick={() => {
-  setSearch(s.D_nombre_completo || '');
-  setSugg([]);
-  setClienteSeleccionado(s);
-}}
+   onClick={() => selectClient(s)}
     style={{
       padding: '10px 14px',
       cursor: 'pointer',
@@ -500,6 +530,7 @@ const FORM_CLIENTE_INIT = {
     <div style={{ fontSize: 12, color: '#666' }}>
       Cédula: {s.D_numero_identificacion || '—'}
       {s.T_tipo_persona ? ` · ${s.T_tipo_persona}` : ''}
+      {s.D_provincia ? ` · ${[s.D_provincia, s.D_canton, s.D_distrito].filter(Boolean).join(', ')}` : ''}
     </div>
   </div>
 ))}
@@ -530,7 +561,8 @@ const FORM_CLIENTE_INIT = {
       }}>📊 Evaluar Riesgo</Btn>
       <Btn variant="ghost" onClick={() => {
         setClienteSeleccionado(null);
-        setSearch('');
+setSearch('');
+setFiltered(null);
       }}>✕ Quitar</Btn>
     </div>
   </div>
@@ -566,6 +598,7 @@ const FORM_CLIENTE_INIT = {
               render: r => `${r.nombre || ''} ${r.primer_apellido || ''} ${r.segundo_apellido || ''}`.trim()
             },
             { key: 'cedula', label: 'Cédula' },
+            { key: 'lugar', label: 'Lugar' },
             { key: 'email', label: 'Email' },
             {
               key: 'acciones', label: '',
@@ -1117,8 +1150,8 @@ export default function App() {
         </div>
 
         <div style={{ padding:'12px 16px', borderTop:`1px solid #ffffff18`, fontSize:11, color:'#475569' }}>
-          <div>SQL Azure</div>
-          <div style={{ color:'#334155', marginTop:2, wordBreak:'break-all' }}>rey.database.windows.net</div>
+          <div>SQL Server</div>
+          <div style={{ color:'#334155', marginTop:2, wordBreak:'break-all' }}>database.windows.net</div>
         </div>
       </nav>
 

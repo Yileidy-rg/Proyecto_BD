@@ -1,24 +1,28 @@
 /**
- * db/index.js — SQL Azure / SQL Server
+ * db/index.js — SQL Server
  * Con prueba de conexión al arrancar y manejo defensivo de errores
  */
 require('dotenv').config();
 const sql = require('mssql');
 
-const config = {
-  server:   process.env.DB_SERVER   || 'rey.database.windows.net',
-  database: process.env.DB_DATABASE || 'Grupo5_IF51002026',
-  user:     process.env.DB_USER     || 'CloudSAaed262d2',
-  password: process.env.DB_PASSWORD || 'Rey12345',
-  port:     parseInt(process.env.DB_PORT || '1433'),
+ const config = {
+  server: process.env.DB_SERVER,
+  database: process.env.DB_DATABASE,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  port: parseInt(process.env.DB_PORT || '1433'),
+
   options: {
     encrypt: false,
-  trustServerCertificate: true,
-  enableArithAbort: true,
-  connectTimeout: 30000,
-  requestTimeout: 30000,
+    trustServerCertificate: true,
+    enableArithAbort: true,
   },
-  pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
+
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000,
+  },
 };
 
 let pool = null;
@@ -33,7 +37,7 @@ const getPool = async () => {
 const testConnection = async () => {
   try {
     const p = await getPool();
-    console.log(`SQL Azure conectado → ${config.server} / ${config.database}`);
+    console.log(`SQL Server conectado → ${config.server} / ${config.database}`);
     // Listar tablas para verificar nombres reales
     const r = await p.request().query(`
       SELECT TABLE_NAME 
@@ -43,8 +47,8 @@ const testConnection = async () => {
     `);
     console.log('📋 Tablas disponibles:', r.recordset.map(t => t.TABLE_NAME).join(', '));
   } catch (err) {
-    console.error('Error de conexión SQL Azure:', err.message);
-    console.error('   Verifica: servidor, usuario, contraseña y reglas de firewall en Azure Portal');
+    console.error('Error de conexión SQL Server:', err.message);
+    console.error('   Verifica: servidor, usuario, contraseña y que SQL Server permita conexiones TCP/IP');
   }
 };
 

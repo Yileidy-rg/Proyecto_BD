@@ -1,8 +1,8 @@
 /**
- * routes/schema.js — Inspección del esquema real de SQL Azure
+ * routes/schema.js — Inspección del esquema real de SQL Server
  * GET /api/schema/tables        → lista todas las tablas
  * GET /api/schema/columns/:table → columnas de una tabla
- * Útil para depurar diferencias entre el .bak y la BD en Azure
+ * Útil para depurar diferencias entre el .bak y la BD en SQL Server
  */
 const express = require('express');
 const router  = express.Router();
