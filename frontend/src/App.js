@@ -924,6 +924,7 @@ function Escenarios({ toast }) {
   const escenarios = [
     { n:1, title:'Escenario 1 — Inserción mensual',     pts:'15 pts', desc:'Inserta 5 clientes nuevos por cada mes transcurrido del año, con un producto diferente y 5 transacciones cada uno. Acumula en cada ejecución.', endpoint:'/escenarios/1', color:C.accent    },
     { n:2, title:'Escenario 2 — Transacciones abril',   pts:'15 pts', desc:'Genera 27 transacciones de abril distribuidas en los productos de 5 clientes aleatorios, cubriendo todos los tipos de gasto.', endpoint:'/escenarios/2', color:'#7c3aed' },
+    { n:3, title:'Escenario 3 - XML SICVECA',            pts:'15 pts', desc:'Genera el XML completo con encabezado, clientes por riesgo, riesgo alto, productos, canales, zona geografica y monitoreo, aplicando validaciones.', endpoint:'/escenarios/3', color:C.success },
   ];
 
   return (
@@ -951,8 +952,8 @@ function Escenarios({ toast }) {
               {logs[s.n] && (
                 <div style={{ marginTop:16, background:C.successBg, borderRadius:8, padding:'12px 14px', border:`1px solid ${C.success}30` }}>
                   <div style={{ fontWeight:700, color:C.success, fontSize:13, marginBottom:6 }}>✅ {logs[s.n].message}</div>
-                  <pre style={{ margin:0, fontSize:11, color:C.textMid, maxHeight:160, overflowY:'auto', fontFamily:'monospace' }}>
-                    {JSON.stringify(logs[s.n].data?.slice?.(0,8)||logs[s.n].data, null, 2)}
+                  <pre style={{ margin:0, fontSize:11, color:C.textMid, maxHeight:s.n === 3 ? 360 : 160, overflow:'auto', whiteSpace:'pre-wrap', wordBreak:'break-word', fontFamily:'monospace' }}>
+                    {logs[s.n].data?.xml || JSON.stringify(logs[s.n].data?.slice?.(0,8)||logs[s.n].data, null, 2)}
                   </pre>
                 </div>
               )}
@@ -971,7 +972,36 @@ function Xml({ toast }) {
 
   const generar = async () => {
     setLoading(true); setResult(null);
-    try { const r = await API.get('/xml/generar'); setResult(r); toast('XML generado', 'success'); }
+    try {
+      const r = await API.post('/escenarios/3', {});
+      const data = r.data || {};
+      const errores = (data.validaciones?.errores || []).map(e =>
+        typeof e === 'string'
+          ? e
+          : `${e.D_bloque || ''} ${e.D_cuadro || ''}: ${e.D_regla || e.D_detalle || ''}`.trim()
+      );
+      setResult({
+        message: r.message,
+        xml: data.xml || '',
+        estructura: data.estructura,
+        validaciones: {
+          ...(data.validaciones || {}),
+          valido: data.validaciones?.valido ?? errores.length === 0,
+          total_errores: data.validaciones?.total_errores ?? errores.length,
+          errores,
+        },
+        resumen: {
+          estado: data.resumen?.D_estado,
+          periodo: data.resumen?.D_periodo,
+          entidad: data.resumen?.D_entidad,
+          clientes: data.resumen?.Q_total_clientes,
+          productos: data.resumen?.Q_total_productos_servicios,
+          transacciones: data.resumen?.Q_total_transacciones,
+          registros_cuadro_a: data.resumen?.Q_registros_cuadro_A,
+        },
+      });
+      toast('Escenario 3 ejecutado: XML generado', 'success');
+    }
     catch (e) { toast(e.message, 'error'); }
     finally { setLoading(false); }
   };
@@ -987,11 +1017,11 @@ function Xml({ toast }) {
 
   return (
     <div>
-      <SectionHeader title="Generador XML SICVECA" />
-      <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>Genera el XML con todos los datos de la BD aplicando las validaciones del estándar SUGEF.</p>
+      <SectionHeader title="Escenario 3 - XML SICVECA" />
+      <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>Genera el XML completo con la estructura de Legitimacion con Base en Riesgos y aplica sus validaciones.</p>
 
       <div style={{ display:'flex', gap:12, marginBottom:24 }}>
-        <Btn onClick={generar} disabled={loading}>{loading ? '⏳ Generando…' : '🔧 Generar XML'}</Btn>
+        <Btn onClick={generar} disabled={loading}>{loading ? 'Ejecutando...' : 'Ejecutar Escenario 3'}</Btn>
         {result && <Btn variant="success" onClick={descargar}>⬇️ Descargar .xml</Btn>}
       </div>
 
@@ -1001,7 +1031,7 @@ function Xml({ toast }) {
             {[
               { label:'Clientes',      val: result.resumen?.clientes,      col: C.accent   },
               { label:'Productos',     val: result.resumen?.productos,     col: '#7c3aed'  },
-              { label:'Transacciones', val: result.resumen?.transacciones, col: C.success  },
+              { label:'Cuadro A',      val: result.resumen?.registros_cuadro_a, col: C.success  },
               { label:'Errores',       val: result.validaciones?.total_errores, col: result.validaciones?.total_errores>0 ? C.danger : C.success },
             ].map(s => (
               <Card key={s.label} style={{ padding:'16px', textAlign:'center' }}>
@@ -1015,7 +1045,11 @@ function Xml({ toast }) {
             <Card style={{ marginBottom:16, padding:16, borderColor:`${C.danger}40` }}>
               <h4 style={{ color:C.danger, margin:'0 0 10px', fontSize:14 }}>⚠️ Errores de Validación ({result.validaciones.total_errores})</h4>
               <div style={{ maxHeight:200, overflowY:'auto' }}>
-                {result.validaciones.errores.map((e,i) => <div key={i} style={{ color:C.danger, fontSize:12, padding:'3px 0' }}>• {e}</div>)}
+                {result.validaciones.errores.map((e,i) => (
+                  <div key={i} style={{ color:C.danger, fontSize:12, padding:'3px 0' }}>
+                    - {e}
+                  </div>
+                ))}
               </div>
             </Card>
           ) : (
@@ -1047,7 +1081,7 @@ const NAV = [
   { id:'cuentas',       label:'Cuentas',       icon:'🏦' },
   { id:'prestamos',     label:'Préstamos',     icon:'💰' },
   { id:'tarjetas',      label:'Tarjetas',      icon:'💳' },
-  { id:'transacciones', label:'Transacciones', icon:'↔️'  },
+              { label:'Cuadro A',      val: result.resumen?.registros_cuadro_a, col: C.success  },
   { id:'riesgo',        label:'Riesgo',        icon:'📊' },
   { id:'escenarios',    label:'Escenarios',    icon:'🧪' },
   { id:'xml',           label:'XML SICVECA',   icon:'🔧' },

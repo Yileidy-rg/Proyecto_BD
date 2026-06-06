@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const sql = db.sql;
 
 function esc(v) {
   return String(v ?? '')
@@ -38,8 +39,72 @@ function validarTransaccion(t) {
   return errores;
 }
 
+function leerSalidaXml(recordsets = []) {
+  const resumen = recordsets?.[0]?.[0] || {};
+  const xmlRecordset = recordsets.find(rs => rs?.[0]?.D_xml_sicveca || rs?.[0]?.xml);
+  const erroresRecordset = recordsets.find(rs => {
+    const row = rs?.[0];
+    return row && !row.D_xml_sicveca && !row.xml && (row.D_bloque || row.D_cuadro || row.D_regla || row.D_detalle);
+  });
+
+  return {
+    resumen,
+    errores: erroresRecordset || [],
+    xml: xmlRecordset?.[0]?.D_xml_sicveca || xmlRecordset?.[0]?.xml || '',
+  };
+}
+
 router.get('/generar', async (req, res, next) => {
   try {
+    try {
+      const hoy = new Date();
+      const anio = req.query.anio ? parseInt(req.query.anio, 10) : hoy.getFullYear();
+      const trimestre = req.query.trimestre
+        ? parseInt(req.query.trimestre, 10)
+        : Math.floor(hoy.getMonth() / 3) + 1;
+      const incluirDatosMalos = ['1', 'true', 'si', 'sí'].includes(String(req.query.datos_malos || '').toLowerCase());
+
+      const sp = await db.query(`
+        EXEC dbo.sp_GenerarXML_LegitimacionRiesgos
+          @N_anio = @anio,
+          @N_trimestre = @trimestre,
+          @D_cedula_entidad = @cedulaEntidad,
+          @T_tipo_carga = @tipoCarga,
+          @C_tipo_moneda = @moneda,
+          @B_incluir_datos_malos = @datosMalos;
+      `, [
+        { name: 'anio', type: sql.Int, value: anio },
+        { name: 'trimestre', type: sql.Int, value: trimestre },
+        { name: 'cedulaEntidad', type: sql.NVarChar(15), value: req.query.cedula_entidad || '3101999002' },
+        { name: 'tipoCarga', type: sql.TinyInt, value: req.query.tipo_carga ? parseInt(req.query.tipo_carga, 10) : 1 },
+        { name: 'moneda', type: sql.TinyInt, value: req.query.moneda ? parseInt(req.query.moneda, 10) : 1 },
+        { name: 'datosMalos', type: sql.Bit, value: incluirDatosMalos },
+      ]);
+
+      const { resumen, errores, xml } = leerSalidaXml(sp.recordsets);
+
+      return res.json({
+        xml,
+        validaciones: {
+          valido: Number(resumen.Q_errores_encontrados || 0) === 0,
+          total_errores: Number(resumen.Q_errores_encontrados || 0),
+          errores: errores.map(e => `${e.D_bloque || ''} ${e.D_cuadro || ''}: ${e.D_regla || e.D_detalle || ''}`.trim()),
+        },
+        resumen: {
+          origen: 'sp_GenerarXML_LegitimacionRiesgos',
+          estado: resumen.D_estado,
+          periodo: resumen.D_periodo,
+          entidad: resumen.D_entidad,
+          clientes: resumen.Q_total_clientes,
+          registros_cuadro_a: resumen.Q_registros_cuadro_A,
+        },
+      });
+    } catch (spErr) {
+      if (!spErr.message?.includes('sp_GenerarXML_LegitimacionRiesgos')) {
+        throw spErr;
+      }
+    }
+
     const [clientesRes, productosRes, txRes, riesgoRes] = await Promise.all([
       db.query(`
         SELECT
