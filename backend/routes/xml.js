@@ -1,8 +1,10 @@
 const express = require('express');
+const { parseStringPromise } = require('xml2js');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
 const {
+  body,
   handleValidation,
   optionalIntQuery,
   optionalNonEmptyQuery,
@@ -60,6 +62,168 @@ function leerSalidaXml(recordsets = []) {
   };
 }
 
+function arr(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function text(value) {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) return text(value[0]);
+  if (typeof value === 'object') return text(value._);
+  return String(value).trim();
+}
+
+function addError(errors, seccion, path, mensaje, codigo = 'XML_VALIDACION') {
+  errors.push({ codigo, seccion, path, mensaje });
+}
+
+function isPositiveAmount(value) {
+  const normalized = text(value).replace(',', '.');
+  return Number.isFinite(Number(normalized)) && Number(normalized) > 0;
+}
+
+function isValidDate(value) {
+  const raw = text(value);
+  if (!raw) return false;
+  const d = new Date(raw);
+  return !Number.isNaN(d.getTime());
+}
+
+function isValidCedula(value) {
+  return /^[0-9A-Za-z-]{9,20}$/.test(text(value));
+}
+
+function validateFallbackSicveca(root, errors) {
+  if (!root.ENCABEZADO?.length) {
+    addError(errors, 'estructura', 'SICVECA.ENCABEZADO', 'El encabezado es obligatorio');
+  }
+
+  if (!isValidDate(root.$?.fecha)) {
+    addError(errors, 'fechas', 'SICVECA.@fecha', 'La fecha del XML es obligatoria y debe ser valida');
+  }
+
+  const clientes = arr(root.CLIENTES?.[0]?.CLIENTE);
+  if (!clientes.length) {
+    addError(errors, 'clientes', 'SICVECA.CLIENTES.CLIENTE', 'Debe existir al menos un cliente');
+  }
+
+  clientes.forEach((cliente, index) => {
+    const base = `SICVECA.CLIENTES.CLIENTE[${index}]`;
+    const clienteId = cliente.$?.id;
+    if (!clienteId || !Number.isInteger(Number(clienteId)) || Number(clienteId) <= 0) {
+      addError(errors, 'clientes', `${base}.@id`, 'El cliente debe tener un id numerico positivo');
+    }
+
+    if (!isValidCedula(cliente.IDENTIFICACION)) {
+      addError(errors, 'clientes', `${base}.IDENTIFICACION`, 'La identificacion del cliente es obligatoria y debe tener formato valido');
+    }
+
+    if (!text(cliente.NOMBRE_COMPLETO)) {
+      addError(errors, 'clientes', `${base}.NOMBRE_COMPLETO`, 'El nombre del cliente es obligatorio');
+    }
+
+    const perfil = cliente.PERFIL_RIESGO?.[0];
+    if (!perfil) {
+      addError(errors, 'riesgo', `${base}.PERFIL_RIESGO`, 'El perfil de riesgo es obligatorio');
+    } else {
+      if (!text(perfil.NIVEL)) addError(errors, 'riesgo', `${base}.PERFIL_RIESGO.NIVEL`, 'El nivel de riesgo es obligatorio');
+      if (!text(perfil.PERIODO)) addError(errors, 'riesgo', `${base}.PERFIL_RIESGO.PERIODO`, 'El periodo de riesgo es obligatorio');
+      if (!isPositiveAmount(perfil.PUNTAJE_TOTAL)) addError(errors, 'riesgo', `${base}.PERFIL_RIESGO.PUNTAJE_TOTAL`, 'El puntaje de riesgo debe ser mayor a cero');
+      if (!isPositiveAmount(perfil.INGRESO_MENSUAL)) addError(errors, 'montos', `${base}.PERFIL_RIESGO.INGRESO_MENSUAL`, 'El ingreso mensual debe ser mayor a cero');
+    }
+
+    const productos = arr(cliente.PRODUCTOS?.[0]?.PRODUCTO);
+    if (!productos.length) {
+      addError(errors, 'productos', `${base}.PRODUCTOS.PRODUCTO`, 'El cliente debe tener al menos un producto');
+    }
+    productos.forEach((producto, pIndex) => {
+      const pBase = `${base}.PRODUCTOS.PRODUCTO[${pIndex}]`;
+      if (!text(producto.TIPO)) addError(errors, 'productos', `${pBase}.TIPO`, 'El tipo de producto es obligatorio');
+      if (!text(producto.REFERENCIA)) addError(errors, 'productos', `${pBase}.REFERENCIA`, 'La referencia del producto es obligatoria');
+      if (!isPositiveAmount(producto.SALDO)) addError(errors, 'montos', `${pBase}.SALDO`, 'El saldo del producto debe ser mayor a cero');
+      if (!isValidDate(producto.FECHA_INICIO)) addError(errors, 'fechas', `${pBase}.FECHA_INICIO`, 'La fecha de inicio del producto es obligatoria y debe ser valida');
+    });
+
+    const transacciones = arr(cliente.TRANSACCIONES?.[0]?.TRANSACCION);
+    if (!transacciones.length) {
+      addError(errors, 'transacciones', `${base}.TRANSACCIONES.TRANSACCION`, 'El cliente debe tener al menos una transaccion');
+    }
+    transacciones.forEach((tx, tIndex) => {
+      const tBase = `${base}.TRANSACCIONES.TRANSACCION[${tIndex}]`;
+      const txId = tx.$?.id;
+      if (!txId || !Number.isInteger(Number(txId)) || Number(txId) <= 0) {
+        addError(errors, 'transacciones', `${tBase}.@id`, 'La transaccion debe tener id numerico positivo');
+      }
+      if (!text(tx.TIPO)) addError(errors, 'transacciones', `${tBase}.TIPO`, 'El tipo de transaccion es obligatorio');
+      if (!text(tx.PRODUCTO)) addError(errors, 'transacciones', `${tBase}.PRODUCTO`, 'El producto asociado a la transaccion es obligatorio');
+      if (!isPositiveAmount(tx.MONTO)) addError(errors, 'montos', `${tBase}.MONTO`, 'El monto de la transaccion debe ser mayor a cero');
+      if (!isValidDate(tx.FECHA)) addError(errors, 'fechas', `${tBase}.FECHA`, 'La fecha de la transaccion es obligatoria y debe ser valida');
+    });
+  });
+}
+
+function validateArchivoSicveca(root, errors) {
+  const serialized = JSON.stringify(root);
+  const requiredHints = [
+    ['clientes', /cliente/i, 'Debe incluir informacion de clientes'],
+    ['productos', /producto|servicio/i, 'Debe incluir informacion de productos o servicios'],
+    ['transacciones', /transaccion|movimiento|monitoreo/i, 'Debe incluir informacion de transacciones o monitoreo'],
+    ['riesgo', /riesgo|calificacion/i, 'Debe incluir informacion de riesgo'],
+  ];
+
+  requiredHints.forEach(([seccion, pattern, mensaje]) => {
+    if (!pattern.test(serialized)) addError(errors, seccion, 'ArchivoSICVECA', mensaje);
+  });
+
+  if (!/\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}T\d{2}/.test(serialized)) {
+    addError(errors, 'fechas', 'ArchivoSICVECA', 'Debe incluir fechas validas');
+  }
+  if (!/\d{9,20}/.test(serialized)) {
+    addError(errors, 'clientes', 'ArchivoSICVECA', 'Debe incluir identificacion de cliente valida');
+  }
+  if (!/[1-9]\d*(\.\d+)?/.test(serialized)) {
+    addError(errors, 'montos', 'ArchivoSICVECA', 'Debe incluir montos mayores a cero');
+  }
+}
+
+async function validarEstructuraXml(xml) {
+  const errors = [];
+  const raw = String(xml || '').trim();
+  if (!raw) {
+    addError(errors, 'estructura', 'xml', 'El XML es obligatorio');
+    return { valido: false, total_errores: errors.length, errores: errors.map(e => e.mensaje), errores_detalle: errors };
+  }
+
+  let parsed;
+  try {
+    parsed = await parseStringPromise(raw, {
+      explicitArray: true,
+      trim: true,
+      normalizeTags: false,
+      normalize: true,
+    });
+  } catch (err) {
+    addError(errors, 'estructura', 'xml', `XML mal formado: ${err.message}`, 'XML_MAL_FORMADO');
+    return { valido: false, total_errores: errors.length, errores: errors.map(e => e.mensaje), errores_detalle: errors };
+  }
+
+  if (parsed.SICVECA) {
+    validateFallbackSicveca(parsed.SICVECA, errors);
+  } else if (parsed.ArchivoSICVECA) {
+    validateArchivoSicveca(parsed.ArchivoSICVECA, errors);
+  } else {
+    addError(errors, 'estructura', Object.keys(parsed)[0] || 'xml', 'La raiz debe ser SICVECA o ArchivoSICVECA');
+  }
+
+  return {
+    valido: errors.length === 0,
+    total_errores: errors.length,
+    errores: errors.map(e => `${e.path}: ${e.mensaje}`),
+    errores_detalle: errors,
+  };
+}
+
 router.get('/generar', [
   optionalIntQuery('anio', { min: 2000, max: 2100 }),
   optionalIntQuery('trimestre', { min: 1, max: 4 }),
@@ -100,13 +264,17 @@ router.get('/generar', [
       ]);
 
       const { resumen, errores, xml } = leerSalidaXml(sp.recordsets);
+      const validacionEstructura = await validarEstructuraXml(xml);
+      const erroresSp = errores.map(e => `${e.D_bloque || ''} ${e.D_cuadro || ''}: ${e.D_regla || e.D_detalle || ''}`.trim());
+      const totalErroresSp = Number(resumen.Q_errores_encontrados || 0);
 
       return res.json({
         xml,
         validaciones: {
-          valido: Number(resumen.Q_errores_encontrados || 0) === 0,
-          total_errores: Number(resumen.Q_errores_encontrados || 0),
-          errores: errores.map(e => `${e.D_bloque || ''} ${e.D_cuadro || ''}: ${e.D_regla || e.D_detalle || ''}`.trim()),
+          valido: totalErroresSp === 0 && validacionEstructura.valido,
+          total_errores: totalErroresSp + validacionEstructura.total_errores,
+          errores: [...erroresSp, ...validacionEstructura.errores].filter(Boolean),
+          errores_detalle: validacionEstructura.errores_detalle,
         },
         resumen: {
           origen: 'sp_GenerarXML_LegitimacionRiesgos',
@@ -277,13 +445,16 @@ router.get('/generar', [
     }
     xml += `  </CLIENTES>\n`;
     xml += `</SICVECA>\n`;
+    const validacionEstructura = await validarEstructuraXml(xml);
+    const erroresTexto = [...errores, ...validacionEstructura.errores];
 
     res.json({
       xml,
       validaciones: {
-        valido: errores.length === 0,
-        total_errores: errores.length,
-        errores
+        valido: erroresTexto.length === 0,
+        total_errores: erroresTexto.length,
+        errores: erroresTexto,
+        errores_detalle: validacionEstructura.errores_detalle,
       },
       resumen: {
         clientes: clientes.length,
@@ -292,6 +463,23 @@ router.get('/generar', [
         monto_total: Number(totalMonto.toFixed(2))
       }
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/validar', [
+  body('xml')
+    .exists({ checkFalsy: true })
+    .withMessage('xml es requerido')
+    .bail()
+    .isString()
+    .withMessage('xml debe ser texto'),
+  handleValidation,
+], async (req, res, next) => {
+  try {
+    const validaciones = await validarEstructuraXml(req.body.xml);
+    res.status(validaciones.valido ? 200 : 400).json({ validaciones });
   } catch (err) {
     next(err);
   }

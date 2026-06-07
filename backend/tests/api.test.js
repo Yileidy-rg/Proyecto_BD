@@ -63,6 +63,45 @@ const transaccion = {
   fecha: '2026-06-01T10:00:00.000Z',
 };
 
+const xmlValido = `<?xml version="1.0" encoding="UTF-8"?>
+<SICVECA version="2.0" fecha="2026-06-01T00:00:00.000Z">
+  <ENCABEZADO>
+    <ENTIDAD>Grupo2_IF5100</ENTIDAD>
+    <TOTAL_CLIENTES>1</TOTAL_CLIENTES>
+    <TOTAL_PRODUCTOS>1</TOTAL_PRODUCTOS>
+    <TOTAL_TRANSACCIONES>1</TOTAL_TRANSACCIONES>
+    <MONTO_TOTAL>50000.00</MONTO_TOTAL>
+  </ENCABEZADO>
+  <CLIENTES>
+    <CLIENTE id="1">
+      <IDENTIFICACION>101110111</IDENTIFICACION>
+      <NOMBRE_COMPLETO>Maria Elena Mora Soto</NOMBRE_COMPLETO>
+      <PERFIL_RIESGO>
+        <INGRESO_MENSUAL>800000.00</INGRESO_MENSUAL>
+        <PUNTAJE_TOTAL>72.00</PUNTAJE_TOTAL>
+        <NIVEL>Medio</NIVEL>
+        <PERIODO>2026-06</PERIODO>
+      </PERFIL_RIESGO>
+      <PRODUCTOS>
+        <PRODUCTO>
+          <TIPO>Cuenta de ahorro</TIPO>
+          <REFERENCIA>CTA001</REFERENCIA>
+          <SALDO>125000.00</SALDO>
+          <FECHA_INICIO>2026-01-01T00:00:00.000Z</FECHA_INICIO>
+        </PRODUCTO>
+      </PRODUCTOS>
+      <TRANSACCIONES>
+        <TRANSACCION id="100">
+          <TIPO>Deposito</TIPO>
+          <PRODUCTO>Cuenta de ahorro</PRODUCTO>
+          <MONTO>50000.00</MONTO>
+          <FECHA>2026-06-01T10:00:00.000Z</FECHA>
+        </TRANSACCION>
+      </TRANSACCIONES>
+    </CLIENTE>
+  </CLIENTES>
+</SICVECA>`;
+
 function ok(recordset = [], recordsets) {
   return Promise.resolve({ recordset, recordsets: recordsets || [recordset] });
 }
@@ -89,7 +128,7 @@ beforeEach(() => {
           Q_total_clientes: 1,
           Q_registros_cuadro_A: 1,
         }],
-        [{ D_xml_sicveca: '<?xml version="1.0" encoding="UTF-8"?><ArchivoSICVECA />' }],
+        [{ D_xml_sicveca: xmlValido }],
       ]);
     }
 
@@ -282,5 +321,27 @@ describe('XML SICVECA', () => {
     expect(res.body.xml).toContain('<?xml');
     expect(res.body.validaciones).toMatchObject({ valido: true, total_errores: 0 });
     expect(res.body.resumen).toMatchObject({ origen: 'sp_GenerarXML_LegitimacionRiesgos' });
+  });
+
+  test('POST /api/xml/validar acepta XML valido', async () => {
+    const res = await request(app).post('/api/xml/validar').send({ xml: xmlValido });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.validaciones).toMatchObject({ valido: true, total_errores: 0 });
+  });
+
+  test('POST /api/xml/validar retorna errores claros para XML incompleto', async () => {
+    const res = await request(app).post('/api/xml/validar').send({
+      xml: '<SICVECA fecha="no-es-fecha"><CLIENTES><CLIENTE id="x"></CLIENTE></CLIENTES></SICVECA>',
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.validaciones.valido).toBe(false);
+    expect(res.body.validaciones.errores).toEqual(expect.arrayContaining([
+      expect.stringContaining('IDENTIFICACION'),
+      expect.stringContaining('PRODUCTOS'),
+      expect.stringContaining('TRANSACCIONES'),
+      expect.stringContaining('PERFIL_RIESGO'),
+    ]));
   });
 });
