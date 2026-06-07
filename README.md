@@ -1,143 +1,244 @@
-# SICVECA — Sistema de Finanzas Personales
-## Proyecto Grupo 5 · IF5100 · Sprint 2
+# SICVECA - Proyecto Node.js + Express + SQL Server
 
-### Stack
-- **Backend**: Node.js + Express
-- **Frontend**: React 18
-- **BD**: Adaptable (SQL Server / PostgreSQL / MySQL / Mock)
+Sistema web para gestion de clientes, productos financieros, transacciones, riesgo, escenarios SICVECA y generacion/validacion XML.
 
----
+## Stack
 
-## Estructura del Proyecto
+- Backend: Node.js, Express, SQL Server, mssql, express-validator
+- Frontend: React 18, axios, recharts
+- Pruebas: Jest + Supertest
+- Gestor recomendado: pnpm
 
-```
-finanzas-app/
+## Estructura
+
+```text
+.
 ├── backend/
-│   ├── db/index.js          ← Adaptador DB (cambia DB_CLIENT en .env)
+│   ├── app.js                 # Configuracion Express exportable para Supertest
+│   ├── server.js              # Solo levanta app.listen()
+│   ├── db/index.js            # Conexion SQL Server y helpers DB
 │   ├── routes/
-│   │   ├── clientes.js      ← CRUD + Búsqueda inteligente (Req. 1 & 3)
-│   │   ├── productos.js     ← CRUD productos
-│   │   ├── cuentas.js       ← CRUD cuentas
-│   │   ├── prestamos.js     ← CRUD préstamos
-│   │   ├── tarjetas.js      ← CRUD tarjetas
-│   │   ├── transacciones.js ← CRUD transacciones
-│   │   ├── riesgo.js        ← Calificadora de riesgo (Req. 2)
-│   │   ├── escenarios.js    ← Escenarios 1 & 2 (Req. 4)
-│   │   └── xml.js           ← Generador XML SICVECA (Escenario 3)
-│   ├── tests/api.test.js    ← Pruebas unitarias Jest
-│   ├── server.js
-│   ├── .env.example
-│   └── package.json
-└── frontend/
-    ├── src/
-    │   ├── App.js            ← Dashboard completo
-    │   └── utils/api.js      ← Capa de acceso a la API
-    └── package.json
+│   │   ├── clientes.js
+│   │   ├── productos.js
+│   │   ├── cuentas.js
+│   │   ├── prestamos.js
+│   │   ├── tarjetas.js
+│   │   ├── transacciones.js
+│   │   ├── riesgo.js
+│   │   ├── escenarios.js
+│   │   ├── xml.js
+│   │   ├── schema.js
+│   │   └── *_financieros.js
+│   ├── sql/
+│   │   ├── sp_crud_escrituras.sql
+│   │   ├── views_get_endpoints.sql
+│   │   └── GET_ENDPOINTS_MAP.md
+│   └── tests/api.test.js
+├── frontend/
+│   └── src/
+├── package.json
+└── pnpm-lock.yaml
 ```
 
----
+## Instalacion
 
-## Instalación y ejecución
+Requisitos:
 
-### 1. Backend
+- Node.js 18 o superior
+- pnpm 8 o superior
+- SQL Server accesible
+- Base de datos restaurada, por ejemplo `Grupo2_IF51002026`
+
+Instalar dependencias:
 
 ```bash
-cd backend
-cp .env.example .env
-# Editar .env — por defecto usa DB_CLIENT=mock (sin BD real)
-npm install
-npm run dev
-# → http://localhost:4000
+pnpm install
 ```
 
-### 2. Frontend
+Crear variables de entorno:
 
 ```bash
-cd frontend
-npm install
-npm start
-# → http://localhost:3000
+cp backend/.env.example backend/.env
 ```
 
-### 3. Tests
+Configurar `backend/.env`:
+
+```env
+DB_SERVER=localhost
+DB_DATABASE=Grupo2_IF51002026
+DB_USER=api_user
+DB_PASSWORD=tu_password
+DB_PORT=1433
+```
+
+## Ejecucion
+
+Backend:
 
 ```bash
-cd backend
-npm test
+pnpm --filter backend dev
 ```
 
----
+URL local:
 
-## Conectar a la base de datos real (SQL Server — .bak subido)
-
-1. Restaurar `Grupo5_IF51002026.bak` en SQL Server.
-2. Editar `backend/.env`:
-   ```
-   DB_CLIENT=mssql
-   DB_HOST=localhost
-   DB_PORT=1433
-   DB_NAME=Grupo5_IF5100
-   DB_USER=sa
-   DB_PASS=TuPassword
-   ```
-3. Cambiar las llamadas en cada `routes/*.js`:
-   - Lecturas: `db.callFn('fn_ObtenerClientes', {})` en vez de `db.getAll()`
-   - Escrituras: `db.callSP('sp_InsertarCliente', datos)` en vez de `db.insert()`
-
----
-
-## Requerimientos cubiertos
-
-| # | Requerimiento | Archivos |
-|---|---------------|---------|
-| 1 | CRUD de todas las tablas transaccionales | `routes/*.js` |
-| 1 | Funciones para lectura, SPs para escritura | `db/index.js` (comentarios SQL real) |
-| 2 | Calificadora de riesgo por cliente | `routes/riesgo.js` |
-| 3 | Búsqueda inteligente clientes (<3s) | `routes/clientes.js` → `GET /buscar` |
-| 4.1 | Escenario 1 — inserción mensual acumulativa | `routes/escenarios.js` → `POST /1` |
-| 4.2 | Escenario 2 — 27 transacciones de abril | `routes/escenarios.js` → `POST /2` |
-| 4.3 | Escenario 3 — XML SICVECA + validaciones | `routes/xml.js` |
-| 4 | Pruebas unitarias Jest | `tests/api.test.js` |
-
----
-
-## API Endpoints
-
+```text
+http://localhost:4000
 ```
-GET    /api/health
+
+Frontend:
+
+```bash
+pnpm --filter frontend start
+```
+
+URL local:
+
+```text
+http://localhost:3000
+```
+
+Backend y frontend juntos:
+
+```bash
+pnpm dev
+```
+
+## Endpoints Principales
+
+Salud y esquema:
+
+```text
+GET /api/health
+GET /api/schema/tables
+GET /api/schema/columns/:table
+```
+
+Clientes:
+
+```text
 GET    /api/clientes
-GET    /api/clientes/buscar?q=&cedula=&nombre=&provincia=
 GET    /api/clientes/:id
+GET    /api/clientes/buscar/inteligente?termino=&limite=
 POST   /api/clientes
 PUT    /api/clientes/:id
 DELETE /api/clientes/:id
+```
 
-GET/POST/PUT/DELETE /api/productos
+Productos y productos especificos:
+
+```text
+GET    /api/productos
+GET    /api/productos/tipos
+GET    /api/productos/:id
+POST   /api/productos
+PUT    /api/productos/:id
+DELETE /api/productos/:id
+
 GET/POST/PUT/DELETE /api/cuentas
 GET/POST/PUT/DELETE /api/prestamos
 GET/POST/PUT/DELETE /api/tarjetas
-GET/POST/PUT/DELETE /api/transacciones
-
-GET    /api/riesgo           (historial)
-GET    /api/riesgo/:idCliente (evaluar)
-
-GET    /api/escenarios
-POST   /api/escenarios/1
-POST   /api/escenarios/2
-
-GET    /api/xml/generar
+GET/POST/PUT/DELETE /api/depositos-plazo
+GET/POST/PUT/DELETE /api/depositos-judiciales
+GET/POST/PUT/DELETE /api/leasing
+GET/POST/PUT/DELETE /api/avales
+GET/POST/PUT/DELETE /api/transferencias
+GET/POST/PUT/DELETE /api/divisas
+GET/POST/PUT/DELETE /api/fideicomisos
+GET/POST/PUT/DELETE /api/atm
+GET/POST/PUT/DELETE /api/banca-en-linea
+GET/POST/PUT/DELETE /api/cajas-seguridad
 ```
 
----
+Transacciones:
 
-## Tablas del .bak identificadas
+```text
+GET    /api/transacciones
+GET    /api/transacciones/:id
+GET    /api/transacciones/producto/:idProducto
+POST   /api/transacciones
+PUT    /api/transacciones/:id
+DELETE /api/transacciones/:id
+```
 
-### Transaccionales (CRUD completo)
-- `CLIENTE`, `PRODUCTO`, `CUENTA`, `PRESTAMO`, `TARJETA`, `TRANSACCION`, `EVALUACION_RIESGO`, `Dependencia`
+Riesgo:
 
-### Catálogos (solo lectura)
-- `CAT_NivelRiesgo`, `CATALOGO_Canton`, `CATALOGO_Distrito`, `CATALOGO_EstadoCuenta`,
-  `CATALOGO_EstadoPrestamo`, `CATALOGO_EstadoTarjeta`, `CATALOGO_Pais`, `CATALOGO_Profesion`,
-  `CATALOGO_Provincia`, `CATALOGO_TipoCliente`, `CATALOGO_TipoCuenta`, `CATALOGO_TipoDependencia`,
-  `CATALOGO_TipoIdentificacion`, `CATALOGO_TipoMoneda`, `CATALOGO_TipoPrestamo`,
-  `CATALOGO_TipoProducto`, `CATALOGO_TipoTarjeta`
+```text
+GET  /api/riesgo
+GET  /api/riesgo/:idCliente?periodo=YYYY-MM
+POST /api/riesgo/recalcular-todos
+```
+
+Escenarios:
+
+```text
+GET  /api/escenarios
+POST /api/escenarios/1
+POST /api/escenarios/2
+POST /api/escenarios/3
+```
+
+XML SICVECA:
+
+```text
+GET  /api/xml/generar
+POST /api/xml/validar
+```
+
+## Validaciones
+
+Las rutas principales usan `express-validator`. Cuando el payload, parametros o query string son invalidos, la API responde `400`:
+
+```json
+{
+  "error": "Payload invalido",
+  "errors": [
+    {
+      "field": "monto",
+      "location": "body",
+      "message": "monto debe ser un monto mayor a cero"
+    }
+  ]
+}
+```
+
+## Pruebas
+
+Ejecutar pruebas del backend:
+
+```bash
+pnpm --filter backend test
+```
+
+Las pruebas usan Supertest contra `backend/app.js` y mockean la base de datos para no modificar datos reales.
+
+## Scripts SQL Necesarios
+
+Ejecutar estos scripts en SQL Server despues de restaurar la base:
+
+1. `backend/sql/sp_crud_escrituras.sql`
+   - Crea procedimientos almacenados para escrituras CRUD transaccionales.
+   - Usado por INSERT, UPDATE y DELETE.
+
+2. `backend/sql/views_get_endpoints.sql`
+   - Crea vistas y funciones usadas por endpoints GET.
+   - Incluye vistas para clientes, productos, cuentas, creditos, tarjetas, transacciones y riesgo.
+
+3. `backend/sql/GET_ENDPOINTS_MAP.md`
+   - Documento de referencia que indica que vista o funcion usa cada endpoint GET.
+
+Orden recomendado:
+
+```text
+1. Restaurar base SQL Server
+2. Ejecutar backend/sql/sp_crud_escrituras.sql
+3. Ejecutar backend/sql/views_get_endpoints.sql
+4. Configurar backend/.env
+5. Levantar backend
+```
+
+## Notas de Desarrollo
+
+- `backend/app.js` contiene la app Express y se importa en pruebas.
+- `backend/server.js` solo llama `app.listen`.
+- `GET /api/schema/*` se mantiene como ayuda de inspeccion del esquema real.
+- `GET /api/xml/generar` conserva el fallback cuando el SP XML no esta disponible.
