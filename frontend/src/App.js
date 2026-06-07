@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+﻿import React, { useState, useEffect, useCallback, useRef } from 'react';
 
-// ── API ───────────────────────────────────────────────────────────────────────
+// â”€â”€ API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const BASE = 'http://localhost:4000/api';
 
 const apiFetch = async (path, opts = {}) => {
@@ -20,7 +20,7 @@ const API = {
   delete: (p)       => apiFetch(p, { method: 'DELETE' }),
 };
 
-// ── Paleta fondo claro ────────────────────────────────────────────────────────
+// â”€â”€ Paleta fondo claro â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const C = {
   bg:         '#eef3f8',
   surface:    '#ffffff',
@@ -48,9 +48,9 @@ const RIESGO_C = { BAJO: '#16a34a', MEDIO: '#d97706', ALTO: '#dc2626' };
 const RIESGO_BG= { BAJO: '#dcfce7', MEDIO: '#fef3c7', ALTO: '#fee2e2' };
 
 const fmt     = (n) => new Intl.NumberFormat('es-CR', { style:'currency', currency:'CRC', minimumFractionDigits:0 }).format(n||0);
-const fmtDate = (d) => { try { return d ? new Date(d).toLocaleDateString('es-CR') : '—'; } catch { return '—'; } };
+const fmtDate = (d) => { try { return d ? new Date(d).toLocaleDateString('es-CR') : 'â€”'; } catch { return 'â€”'; } };
 
-// ── Atoms ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Atoms â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const BienvenidaClientes = () => (
   <div style={{ textAlign:'center', padding:'56px 28px', color:C.textMid }}>
@@ -173,7 +173,7 @@ const Table = ({ cols, rows, loading, error, onRetry, emptyMsg, emptyIcon, empty
               onMouseOut={e  => e.currentTarget.style.background='transparent'}>
               {cols.map(c => (
                 <td key={c.key} style={{ padding:'12px 16px', color:C.text, verticalAlign:'middle', lineHeight:1.45 }}>
-                  {c.render ? c.render(row) : (row[c.key] ?? '—')}
+                  {c.render ? c.render(row) : (row[c.key] ?? 'â€”')}
                 </td>
               ))}
             </tr>
@@ -192,7 +192,7 @@ const Modal = ({ open, onClose, title, children, width=520 }) => {
       <div style={{ background:C.surface, borderRadius:16, boxShadow:'0 20px 60px #0000002a', maxWidth:width, width:'100%', maxHeight:'90vh', overflowY:'auto' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 24px', borderBottom:`1px solid ${C.border}` }}>
           <h3 style={{ margin:0, fontSize:17, fontWeight:800, color:C.text }}>{title}</h3>
-          <button onClick={onClose} style={{ background:C.surfaceAlt, border:`1px solid ${C.border}`, color:C.textMid, width:32, height:32, borderRadius:8, cursor:'pointer', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+          <button onClick={onClose} style={{ background:C.surfaceAlt, border:`1px solid ${C.border}`, color:C.textMid, width:32, height:32, borderRadius:8, cursor:'pointer', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>âœ•</button>
         </div>
         <div style={{ padding:'20px 24px' }}>{children}</div>
       </div>
@@ -210,33 +210,33 @@ const Toast = ({ msg, type, onClear }) => {
     <div style={{ position:'fixed', bottom:24, right:24, background:bg, color:'#fff', borderRadius:10,
       padding:'13px 20px', fontWeight:700, fontSize:14, zIndex:9999, maxWidth:380,
       boxShadow:'0 4px 20px #0000003a', display:'flex', alignItems:'center', gap:10 }}>
-      <span>{type === 'error' ? '✕' : '✓'}</span>{msg}
+      <span>{type === 'error' ? 'âœ•' : 'âœ“'}</span>{msg}
     </div>
   );
 };
 
-// ── Sección Clientes ──────────────────────────────────────────────────────────
+// â”€â”€ SecciÃ³n Clientes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PROVINCIAS = [
   { value:'', label:'Seleccione provincia' },
-  { value:'1', label:'San José' },
+  { value:'1', label:'San JosÃ©' },
   { value:'2', label:'Alajuela' },
   { value:'3', label:'Cartago' },
   { value:'4', label:'Heredia' },
   { value:'5', label:'Guanacaste' },
   { value:'6', label:'Puntarenas' },
-  { value:'7', label:'Limón' },
+  { value:'7', label:'LimÃ³n' },
 ];
 
 const ACTIVIDADES_ECONOMICAS = [
   { value:'', label:'Seleccione actividad' },
-  { value:'850000000', label:'Enseñanza' },
-  { value:'620000000', label:'Programación y consultoría informática' },
+  { value:'850000000', label:'EnseÃ±anza' },
+  { value:'620000000', label:'ProgramaciÃ³n y consultorÃ­a informÃ¡tica' },
   { value:'470000000', label:'Comercio al por menor' },
   { value:'640000000', label:'Servicios financieros' },
-  { value:'641100000', label:'Intermediación monetaria / bancos' },
+  { value:'641100000', label:'IntermediaciÃ³n monetaria / bancos' },
   { value:'860000000', label:'Salud humana' },
   { value:'700000000', label:'Actividades inmobiliarias' },
-  { value:'840000000', label:'Administración pública' },
+  { value:'840000000', label:'AdministraciÃ³n pÃºblica' },
   { value:'960000000', label:'Servicios personales' },
   { value:'010009000', label:'Agricultura' },
   { value:'000100000', label:'Sin actividad productiva' },
@@ -245,23 +245,23 @@ const ACTIVIDADES_ECONOMICAS = [
 const JUSTIFICACIONES_INGRESO = [
   { value:'', label:'Seleccione fuente de ingreso' },
   { value:'1', label:'Salario' },
-  { value:'2', label:'Pensión / jubilación' },
+  { value:'2', label:'PensiÃ³n / jubilaciÃ³n' },
   { value:'3', label:'Negocio propio' },
   { value:'4', label:'Alquiler de bienes' },
   { value:'5', label:'Inversiones' },
   { value:'6', label:'Remesas del exterior' },
-  { value:'7', label:'Herencia / donación' },
+  { value:'7', label:'Herencia / donaciÃ³n' },
   { value:'8', label:'Subsidio estatal' },
   { value:'9', label:'Otro' },
 ];
 
 const SI_NO = [
   { value:'0', label:'No' },
-  { value:'1', label:'Sí' },
+  { value:'1', label:'SÃ­' },
 ];
 
 const RESIDENTE_OPCIONES = [
-  { value:'1', label:'Sí, residente en Costa Rica' },
+  { value:'1', label:'SÃ­, residente en Costa Rica' },
   { value:'0', label:'No residente' },
 ];
 
@@ -354,9 +354,9 @@ const FORM_CLIENTE_INIT = {
 
       const data = Array.isArray(r.data) ? r.data : [];
 
-      const mapeados = data.map(mapClienteBusqueda);
+      const mapeados = data.map(mapClienteBusqueda).slice(0, 20);
 
-      setSugg(data);
+      setSugg([]);
       setFiltered(mapeados);
     } catch (e) {
       console.error(e);
@@ -369,7 +369,7 @@ const FORM_CLIENTE_INIT = {
   }, 300);
 };
 
-  // ✅ FIX 2: al seleccionar sugerencia, filtrar la tabla con ese cliente
+  // âœ… FIX 2: al seleccionar sugerencia, filtrar la tabla con ese cliente
   const selectClient = (c) => {
     const mapped = mapClienteBusqueda(c);
     const fullName = mapped.D_nombre_completo || `${mapped.nombre} ${mapped.primer_apellido} ${mapped.segundo_apellido}`.trim();
@@ -411,7 +411,7 @@ const FORM_CLIENTE_INIT = {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este cliente?')) return;
+    if (!window.confirm('Â¿Eliminar este cliente?')) return;
     try {
       await API.delete(`/clientes/${id}`);
       toast('Cliente eliminado', 'success');
@@ -454,7 +454,7 @@ const FORM_CLIENTE_INIT = {
 
   const f = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
-  // ✅ FIX 3: la tabla muestra `filtered` si hay búsqueda, si no muestra todos
+  // âœ… FIX 3: la tabla muestra `filtered` si hay bÃºsqueda, si no muestra todos
   const tableRows = filtered !== null ? filtered : rows;
 
   return (
@@ -464,7 +464,7 @@ const FORM_CLIENTE_INIT = {
         action={<Btn onClick={openCreate}>+ Nuevo Cliente</Btn>}
       />
 
-      {/* 🔍 SEARCH INPUT */}
+      {/* ðŸ” SEARCH INPUT */}
       <div style={{ position: 'relative', marginBottom: 20 }}>
         <div style={{ position: 'relative' }}>
           <input
@@ -485,7 +485,7 @@ const FORM_CLIENTE_INIT = {
               boxShadow: '0 8px 22px #0f172a0a',
             }}
           />
-          {/* Botón X para limpiar */}
+          {/* BotÃ³n X para limpiar */}
           {search && (
             <button
               onClick={clearSearch}
@@ -506,33 +506,41 @@ const FORM_CLIENTE_INIT = {
             borderRadius: 10, zIndex: 1000, marginTop: 8, maxHeight:360, overflowY:'auto',
             boxShadow: '0 18px 40px #0f172a1a'
           }}>
-           {sugg.map((s, i) => (
-  <div
-    key={i}
-   onClick={() => selectClient(s)}
-    style={{
-      padding: '14px 16px',
-      cursor: 'pointer',
-      borderBottom: `1px solid ${C.border}`
-    }}
-    onMouseOver={e => e.currentTarget.style.background = '#f8fafc'}
-    onMouseOut={e => e.currentTarget.style.background = '#fff'}
-  >
-    <div style={{ fontWeight: 800, color: C.text, fontSize: 15 }}>
-      {s.D_nombre_completo || '—'}
+   {sugg.map((s, i) => {
+  const nombre = s.D_nombre_completo || `${s.nombre || ''} ${s.primer_apellido || ''} ${s.segundo_apellido || ''}`.trim() || '--';
+  return (
+    <div
+      key={i}
+      onClick={() => selectClient(s)}
+      style={{
+        padding: '14px 16px',
+        cursor: 'pointer',
+        borderBottom: `1px solid ${C.border}`
+      }}
+      onMouseOver={e => e.currentTarget.style.background = '#f8fafc'}
+      onMouseOut={e => e.currentTarget.style.background = '#fff'}
+    >
+      <div style={{ fontWeight: 800, color: C.text, fontSize: 15 }}>
+        {nombre}
+      </div>
+      <div style={{ fontSize: 13, color: C.textMid, marginTop: 4 }}>
+        Cedula: {s.cedula || '--'}
+        {s.T_tipo_persona ? ` - ${s.T_tipo_persona}` : ''}
+        {s.lugar ? ` - ${s.lugar}` : ''}
+      </div>
     </div>
-    <div style={{ fontSize: 13, color: C.textMid, marginTop: 4 }}>
-      Cédula: {s.D_numero_identificacion || '—'}
-      {s.T_tipo_persona ? ` · ${s.T_tipo_persona}` : ''}
-      {s.D_provincia ? ` · ${[s.D_provincia, s.D_canton, s.D_distrito].filter(Boolean).join(', ')}` : ''}
-    </div>
-  </div>
-))}
+  );
+})}
           </div>
         )}
       </div>
-      {/* 📋 TABLA */}
-      {sugg.length === 0 && <Card>
+      {/* ðŸ“‹ TABLA */}
+      {loading && search.trim() && (
+        <div style={{ margin:'-8px 0 14px', color:C.textMuted, fontSize:13, fontWeight:650 }}>
+          Buscando coincidencias...
+        </div>
+      )}
+      <Card>
         <Table
           loading={loading}
   error={error}
@@ -547,7 +555,7 @@ const FORM_CLIENTE_INIT = {
               key: 'nombre', label: 'Nombre',
               render: r => `${r.nombre || ''} ${r.primer_apellido || ''} ${r.segundo_apellido || ''}`.trim()
             },
-            { key: 'cedula', label: 'Cédula' },
+            { key: 'cedula', label: 'Cedula' },
             { key: 'lugar', label: 'Lugar' },
             { key: 'email', label: 'Email' },
             {
@@ -566,7 +574,7 @@ const FORM_CLIENTE_INIT = {
             {tableRows.length} cliente(s)
           </div>
         )}
-      </Card>}
+      </Card>
 
       {/* MODAL */}
       <Modal open={modal} onClose={() => setModal(false)} title={editId ? 'Editar Cliente' : 'Nuevo Cliente'}>
@@ -574,29 +582,29 @@ const FORM_CLIENTE_INIT = {
           <Input label="Nombre" value={form.nombre} onChange={v => f('nombre', v)} required />
           <Input label="Primer Apellido" value={form.primer_apellido} onChange={v => f('primer_apellido', v)} required />
           <Input label="Segundo Apellido" value={form.segundo_apellido} onChange={v => f('segundo_apellido', v)} />
-          <Input label="Cédula" value={form.cedula} onChange={v => f('cedula', v)} required />
+          <Input label="Cedula" value={form.cedula} onChange={v => f('cedula', v)} required />
           <Input label="Email" type="email" value={form.email} onChange={v => f('email', v)} />
-          <Input label="Teléfono" value={form.telefono} onChange={v => f('telefono', v)} />
+          <Input label="TelÃ©fono" value={form.telefono} onChange={v => f('telefono', v)} />
           <Input label="Fecha Nacimiento" type="date" value={form.fecha_nacimiento} onChange={v => f('fecha_nacimiento', v)} />
           <Select label="Tipo Cliente" value={form.tipo_cliente} onChange={v => f('tipo_cliente', v)}
-            options={[{ value: '1', label: 'Físico' }, { value: '2', label: 'Jurídico' }]} />
+            options={[{ value: '1', label: 'FÃ­sico' }, { value: '2', label: 'JurÃ­dico' }]} />
           <Select label="Provincia" value={form.provincia} onChange={v => f('provincia', v)} options={PROVINCIAS} />
-          <Select label="Actividad Económica" value={form.actividad_economica} onChange={v => f('actividad_economica', v)} options={ACTIVIDADES_ECONOMICAS} />
+          <Select label="Actividad EconÃ³mica" value={form.actividad_economica} onChange={v => f('actividad_economica', v)} options={ACTIVIDADES_ECONOMICAS} />
           <Select label="Fuente de Ingreso" value={form.justificacion_ingreso} onChange={v => f('justificacion_ingreso', v)} options={JUSTIFICACIONES_INGRESO} />
-          <Input label="Ingreso Mensual (₡)" type="number" value={form.ingreso_mensual} onChange={v => f('ingreso_mensual', v)} />
-          <Select label="¿Es PEP?" value={form.es_pep} onChange={v => f('es_pep', v)} options={SI_NO} />
-          <Select label="¿Sujeto Obligado?" value={form.es_sujeto_obligado} onChange={v => f('es_sujeto_obligado', v)} options={SI_NO} />
-          <Select label="¿Es Residente?" value={form.es_residente} onChange={v => f('es_residente', v)} options={RESIDENTE_OPCIONES} />
+          <Input label="Ingreso Mensual (â‚¡)" type="number" value={form.ingreso_mensual} onChange={v => f('ingreso_mensual', v)} />
+          <Select label="Â¿Es PEP?" value={form.es_pep} onChange={v => f('es_pep', v)} options={SI_NO} />
+          <Select label="Â¿Sujeto Obligado?" value={form.es_sujeto_obligado} onChange={v => f('es_sujeto_obligado', v)} options={SI_NO} />
+          <Select label="Â¿Es Residente?" value={form.es_residente} onChange={v => f('es_residente', v)} options={RESIDENTE_OPCIONES} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
           <Btn variant="ghost" onClick={() => setModal(false)}>Cancelar</Btn>
-          <Btn onClick={handleSubmit} disabled={saving}>{saving ? 'Guardando…' : editId ? 'Actualizar' : 'Crear'}</Btn>
+          <Btn onClick={handleSubmit} disabled={saving}>{saving ? 'Guardandoâ€¦' : editId ? 'Actualizar' : 'Crear'}</Btn>
         </div>
       </Modal>
     </div>
   );
 }
-// ── Sección genérica CRUD ─────────────────────────────────────────────────────
+// â”€â”€ SecciÃ³n genÃ©rica CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function CrudSection({ title, icon, endpoint, idField, cols, formFields, formInit, validateFn, emptyMsg, hideActions = false }) {
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -625,7 +633,7 @@ function CrudSection({ title, icon, endpoint, idField, cols, formFields, formIni
     setForm(mapped); setEditId(r[idField]); setModal(true);
   };
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este registro?')) return;
+    if (!window.confirm('Â¿Eliminar este registro?')) return;
     try { await API.delete(`/${endpoint}/${id}`); showToast('Eliminado', 'success'); load(); }
     catch (e) { showToast(e.message, 'error'); }
   };
@@ -634,7 +642,7 @@ function CrudSection({ title, icon, endpoint, idField, cols, formFields, formIni
     if (validateFn) { const err = validateFn(form); if (err) return showToast(err, 'error'); }
     setSaving(true);
     try {
-      // Convertir tipos numéricos
+      // Convertir tipos numÃ©ricos
       const payload = {};
       formFields.forEach(f => {
         const v = form[f.key];
@@ -677,7 +685,7 @@ function CrudSection({ title, icon, endpoint, idField, cols, formFields, formIni
         </div>
         <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:4, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
           <Btn variant="ghost" onClick={() => setModal(false)}>Cancelar</Btn>
-          <Btn onClick={handleSubmit} disabled={saving}>{saving ? 'Guardando…' : editId ? 'Actualizar' : 'Crear'}</Btn>
+          <Btn onClick={handleSubmit} disabled={saving}>{saving ? 'Guardandoâ€¦' : editId ? 'Actualizar' : 'Crear'}</Btn>
         </div>
       </Modal>
 
@@ -686,7 +694,7 @@ function CrudSection({ title, icon, endpoint, idField, cols, formFields, formIni
   );
 }
 
-// ── Sección Transacciones ─────────────────────────────────────────────────────
+// â”€â”€ SecciÃ³n Transacciones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TIPOS_TX = ['DEPOSITO','RETIRO','TRANSFERENCIA','PAGO_SERVICIOS','COMPRA_SUPERMERCADO',
   'SINPE_MOVIL','PAGO_TARJETA_CREDITO','AHORRO','GASOLINA','COMIDA_RESTAURANTE',
   'GYM','INTERNET','LUZ','AGUA','CELULAR','STREAMING','ROPA','HOBBY'];
@@ -713,7 +721,7 @@ function Transacciones({ toast }) {
     setSaving(true);
     try {
       await API.post('/transacciones', { ...form, id_producto: parseInt(form.id_producto), monto: parseFloat(form.monto) });
-      toast('Transacción registrada', 'success');
+      toast('TransacciÃ³n registrada', 'success');
       setModal(false);
       setForm({ id_producto:'', tipo_transaccion:'DEPOSITO', monto:'', descripcion:'' });
       load();
@@ -738,27 +746,27 @@ function Transacciones({ toast }) {
             }},
             { key:'monto',  label:'Monto',  render: r => <strong style={{ color:C.text }}>{fmt(r.monto)}</strong> },
             { key:'fecha',  label:'Fecha',  render: r => fmtDate(r.fecha) },
-            { key:'descripcion', label:'Descripción' },
+            { key:'descripcion', label:'DescripciÃ³n' },
           ]}
         />
       </Card>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Nueva Transacción">
+      <Modal open={modal} onClose={() => setModal(false)} title="Nueva TransacciÃ³n">
         <Input label="ID Producto" value={form.id_producto} onChange={v => setForm(p=>({...p,id_producto:v}))} required type="number" />
-        <Select label="Tipo de Transacción" value={form.tipo_transaccion} onChange={v => setForm(p=>({...p,tipo_transaccion:v}))}
+        <Select label="Tipo de TransacciÃ³n" value={form.tipo_transaccion} onChange={v => setForm(p=>({...p,tipo_transaccion:v}))}
           options={TIPOS_TX.map(t=>({value:t,label:t}))} />
-        <Input label="Monto (₡)" type="number" value={form.monto} onChange={v => setForm(p=>({...p,monto:v}))} required />
-        <Input label="Descripción" value={form.descripcion} onChange={v => setForm(p=>({...p,descripcion:v}))} />
+        <Input label="Monto (â‚¡)" type="number" value={form.monto} onChange={v => setForm(p=>({...p,monto:v}))} required />
+        <Input label="DescripciÃ³n" value={form.descripcion} onChange={v => setForm(p=>({...p,descripcion:v}))} />
         <div style={{ display:'flex', justifyContent:'flex-end', gap:10, paddingTop:16, borderTop:`1px solid ${C.border}` }}>
           <Btn variant="ghost" onClick={() => setModal(false)}>Cancelar</Btn>
-          <Btn onClick={handleSubmit} disabled={saving}>{saving?'Registrando…':'Registrar'}</Btn>
+          <Btn onClick={handleSubmit} disabled={saving}>{saving?'Registrandoâ€¦':'Registrar'}</Btn>
         </div>
       </Modal>
     </div>
   );
 }
 
-// ── Sección Riesgo ────────────────────────────────────────────────────────────
+// â”€â”€ SecciÃ³n Riesgo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Riesgo({ toast, clienteIdInicial }) {
   const [historial, setHistorial] = useState([]);
   const [loadingH, setLoadingH]   = useState(true);
@@ -778,7 +786,7 @@ function Riesgo({ toast, clienteIdInicial }) {
   useEffect(() => { loadHistorial(); }, [loadHistorial]);
 
   const evaluar = async () => {
-    if (!idCliente) return toast('Ingresá el ID del cliente', 'error');
+    if (!idCliente) return toast('IngresÃ¡ el ID del cliente', 'error');
     setEvaluando(true); setResultado(null);
     try {
       const r = await API.get(`/riesgo/${idCliente}`);
@@ -791,7 +799,7 @@ function Riesgo({ toast, clienteIdInicial }) {
   return (
     <div>
       <SectionHeader title="Calificadora de Riesgo" />
-      <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>Evaluación ponderada por variables según tipo de cliente (físico/jurídico). Guarda resultado en EVALUACION_RIESGO.</p>
+      <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>EvaluaciÃ³n ponderada por variables segÃºn tipo de cliente (fÃ­sico/jurÃ­dico). Guarda resultado en EVALUACION_RIESGO.</p>
 
       <Card style={{ marginBottom:20, padding:20 }}>
         <div style={{ display:'flex', gap:12, alignItems:'flex-end' }}>
@@ -809,7 +817,7 @@ function Riesgo({ toast, clienteIdInicial }) {
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:12 }}>
               <div>
                 <div style={{ fontWeight:800, fontSize:18, color:C.text }}>{resultado.nombre}</div>
-                <div style={{ color:C.textMid, fontSize:13 }}>{resultado.tipo_cliente} · ID {resultado.id_cliente}</div>
+                <div style={{ color:C.textMid, fontSize:13 }}>{resultado.tipo_cliente} - ID {resultado.id_cliente}</div>
               </div>
               <div style={{ textAlign:'center' }}>
                 <div style={{ fontSize:42, fontWeight:900, color:RIESGO_C[resultado.nivel_riesgo], lineHeight:1 }}>{resultado.puntaje_total}</div>
@@ -984,7 +992,7 @@ function Xml({ toast }) {
               { label:'Errores',       val: result.validaciones?.total_errores, col: result.validaciones?.total_errores>0 ? C.danger : C.success },
             ].map(s => (
               <Card key={s.label} style={{ padding:'16px', textAlign:'center' }}>
-                <div style={{ fontSize:30, fontWeight:900, color:s.col }}>{s.val??'—'}</div>
+                <div style={{ fontSize:30, fontWeight:900, color:s.col }}>{s.val??'â€”'}</div>
                 <div style={{ fontSize:11, color:C.textMuted, marginTop:4, fontWeight:600, textTransform:'uppercase', letterSpacing:0.5 }}>{s.label}</div>
               </Card>
             ))}
@@ -1014,7 +1022,7 @@ function Xml({ toast }) {
             </div>
             <pre style={{ margin:0, padding:16, fontSize:11, color:'#1e40af', background:'#eff6ff',
               overflowX:'auto', maxHeight:360, fontFamily:"'Consolas','Courier New',monospace", lineHeight:1.5 }}>
-              {result.xml?.substring(0,4000)}{result.xml?.length>4000?'\n\n… (truncado — descargue el archivo para verlo completo)':''}
+              {result.xml?.substring(0,4000)}{result.xml?.length>4000?'\n\nâ€¦ (truncado â€” descargue el archivo para verlo completo)':''}
             </pre>
           </Card>
         </>
@@ -1023,7 +1031,7 @@ function Xml({ toast }) {
   );
 }
 
-// ── App principal ─────────────────────────────────────────────────────────────
+// â”€â”€ App principal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const NAV = [
   { id:'clientes',      label:'Clientes',      icon:'CL' },
   { id:'productos',     label:'Productos',     icon:'PR' },
@@ -1040,10 +1048,10 @@ const NAV = [
 export default function App() {
   const [section, setSection] = useState('clientes');
   const [toast, setToast]     = useState({ msg:'', type:'' });
-  const [riesgoId, setRiesgoId] = useState(''); // ← agregar esto
+  const [riesgoId, setRiesgoId] = useState(''); // â† agregar esto
   const showToast = (msg, type='success') => setToast({ msg, type });
 
-  // Campos para cada sección CRUD genérica
+  // Campos para cada secciÃ³n CRUD genÃ©rica
   const PRODUCTO_FIELDS = [
     { key:'id_cliente',    label:'ID Cliente', required:true, type:'number' },
     { key:'tipo_producto', label:'Tipo de Producto', required:true, options:[
@@ -1078,24 +1086,24 @@ export default function App() {
   const CUENTA_FIELDS = [
     { key:'id_producto',    label:'ID Producto',   required:true, type:'number' },
     { key:'tipo_cuenta',    label:'Tipo Cuenta',   required:true, type:'number' },
-    { key:'numero_cuenta',  label:'Número Cuenta' },
+    { key:'numero_cuenta',  label:'NÃºmero Cuenta' },
     { key:'saldo',          label:'Saldo',         type:'number' },
     { key:'estado',         label:'Estado', options:[{value:'1',label:'Activa'},{value:'0',label:'Inactiva'}] },
   ];
   const PRESTAMO_FIELDS = [
     { key:'id_producto',    label:'ID Producto',    required:true, type:'number' },
-    { key:'tipo_prestamo',  label:'Tipo Préstamo',  required:true, type:'number' },
-    { key:'monto',          label:'Monto (₡)',       required:true, type:'number' },
+    { key:'tipo_prestamo',  label:'Tipo PrÃ©stamo',  required:true, type:'number' },
+    { key:'monto',          label:'Monto (â‚¡)',       required:true, type:'number' },
     { key:'plazo_meses',    label:'Plazo (meses)',   type:'number' },
-    { key:'tasa_interes',   label:'Tasa Interés %',  type:'number' },
+    { key:'tasa_interes',   label:'Tasa InterÃ©s %',  type:'number' },
     { key:'fecha_desembolso',label:'Fecha Desembolso',type:'date' },
     { key:'estado',         label:'Estado', options:[{value:'1',label:'Activo'},{value:'0',label:'Cancelado'}] },
   ];
   const TARJETA_FIELDS = [
     { key:'id_producto',    label:'ID Producto',     required:true, type:'number' },
     { key:'tipo_tarjeta',   label:'Tipo Tarjeta',    required:true, type:'number' },
-    { key:'numero_tarjeta', label:'Número Tarjeta' },
-    { key:'limite_credito', label:'Límite Crédito',  type:'number' },
+    { key:'numero_tarjeta', label:'NÃºmero Tarjeta' },
+    { key:'limite_credito', label:'LÃ­mite CrÃ©dito',  type:'number' },
     { key:'saldo_actual',   label:'Saldo Actual',    type:'number' },
     { key:'estado',         label:'Estado', options:[{value:'1',label:'Activa'},{value:'0',label:'Bloqueada'}] },
   ];
@@ -1114,13 +1122,13 @@ export default function App() {
         cols={[ {key:'id_producto',label:'ID'},{key:'id_cliente',label:'Cliente'},{key:'tipo_producto_desc',label:'Producto',render:r=>r.tipo_producto_desc||r.tipo_producto},{key:'moneda',label:'Moneda'},{key:'fecha_apertura',label:'Apertura',render:r=>fmtDate(r.fecha_apertura)},{key:'estado',label:'Estado',render:r=><Badge color={r.estado==='ACTIVO'?C.success:C.textMid} bg={r.estado==='ACTIVO'?C.successBg:C.surfaceAlt}>{r.estado}</Badge>},{key:'descripcion',label:'Referencia'} ]}
         validateFn={f=>(!f.id_cliente||!f.tipo_producto)?'ID Cliente y Tipo son requeridos':null} toast={showToast} />;
       case 'cuentas':       return <CrudSection endpoint="cuentas"    idField="id_cuenta"    icon="CU" title="Cuentas"    formFields={CUENTA_FIELDS}   formInit={toInit(CUENTA_FIELDS)}
-        cols={[ {key:'id_cuenta',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_cuenta',label:'Tipo'},{key:'numero_cuenta',label:'Número'},{key:'saldo',label:'Saldo',render:r=>fmt(r.saldo)},{key:'estado',label:'Estado'} ]}
+        cols={[ {key:'id_cuenta',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_cuenta',label:'Tipo'},{key:'numero_cuenta',label:'NÃºmero'},{key:'saldo',label:'Saldo',render:r=>fmt(r.saldo)},{key:'estado',label:'Estado'} ]}
         validateFn={f=>(!f.id_producto)?'ID Producto es requerido':null} toast={showToast} />;
       case 'prestamos':     return <CrudSection endpoint="prestamos"  idField="id_prestamo"  icon="CR" title="Prestamos"  formFields={PRESTAMO_FIELDS} formInit={toInit(PRESTAMO_FIELDS)}
         cols={[ {key:'id_prestamo',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_prestamo',label:'Tipo'},{key:'monto',label:'Monto',render:r=>fmt(r.monto)},{key:'plazo_meses',label:'Plazo'},{key:'tasa_interes',label:'Tasa %'},{key:'estado',label:'Estado'} ]}
         validateFn={f=>(!f.id_producto||!f.monto)?'ID Producto y Monto son requeridos':null} toast={showToast} />;
       case 'tarjetas':      return <CrudSection endpoint="tarjetas"   idField="id_tarjeta"   icon="TC" title="Tarjetas"   formFields={TARJETA_FIELDS}  formInit={toInit(TARJETA_FIELDS)}
-        cols={[ {key:'id_tarjeta',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_tarjeta',label:'Tipo'},{key:'numero_tarjeta',label:'Número'},{key:'limite_credito',label:'Límite',render:r=>fmt(r.limite_credito)},{key:'saldo_actual',label:'Saldo',render:r=>fmt(r.saldo_actual)},{key:'estado',label:'Estado'} ]}
+        cols={[ {key:'id_tarjeta',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_tarjeta',label:'Tipo'},{key:'numero_tarjeta',label:'NÃºmero'},{key:'limite_credito',label:'LÃ­mite',render:r=>fmt(r.limite_credito)},{key:'saldo_actual',label:'Saldo',render:r=>fmt(r.saldo_actual)},{key:'estado',label:'Estado'} ]}
         validateFn={f=>(!f.id_producto)?'ID Producto es requerido':null} toast={showToast} />;
       default: return null;
     }
@@ -1176,3 +1184,4 @@ export default function App() {
     </div>
   );
 }
+

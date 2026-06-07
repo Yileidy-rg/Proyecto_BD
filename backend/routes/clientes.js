@@ -40,12 +40,7 @@ const SELECT_BUSQUEDA_CLIENTES = `
     c.D_nombre_2,
     c.D_apellido_1,
     c.D_apellido_2,
-    COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(
-      COALESCE(c.D_nombre_1, ''),
-      CASE WHEN c.D_nombre_2 IS NULL OR c.D_nombre_2 = '' THEN '' ELSE CONCAT(' ', c.D_nombre_2) END,
-      CASE WHEN c.D_apellido_1 IS NULL OR c.D_apellido_1 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_1) END,
-      CASE WHEN c.D_apellido_2 IS NULL OR c.D_apellido_2 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_2) END
-    ))), ''), c.D_nombre_juridico) AS D_nombre_completo,
+    fn.D_nombre_completo,
     CASE c.C_tipo_persona
       WHEN 1 THEN 'Fisico'
       WHEN 2 THEN 'Juridico'
@@ -72,13 +67,21 @@ const SELECT_BUSQUEDA_CLIENTES = `
   LEFT JOIN dbo.cat_Provincia pr ON pr.N_provincia = c.C_provincia
   LEFT JOIN dbo.cat_Canton ca ON ca.N_canton = c.C_canton AND ca.C_provincia = c.C_provincia
   LEFT JOIN dbo.cat_Distrito di ON di.N_distrito = c.C_distrito AND di.C_canton = c.C_canton
+  CROSS APPLY (
+    SELECT COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(
+      COALESCE(c.D_nombre_1, ''),
+      CASE WHEN c.D_nombre_2 IS NULL OR c.D_nombre_2 = '' THEN '' ELSE CONCAT(' ', c.D_nombre_2) END,
+      CASE WHEN c.D_apellido_1 IS NULL OR c.D_apellido_1 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_1) END,
+      CASE WHEN c.D_apellido_2 IS NULL OR c.D_apellido_2 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_2) END
+    ))), ''), c.D_nombre_juridico) AS D_nombre_completo
+  ) fn
 `;
 
 // GET /api/clientes/buscar/inteligente?termino=...
 router.get('/buscar/inteligente', async (req, res, next) => {
   try {
     const terminoRaw = req.query.termino || '';
-    const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 50);
+    const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 20);
     const termino = terminoRaw.trim();
 
     if (!termino) {
@@ -88,161 +91,74 @@ router.get('/buscar/inteligente', async (req, res, next) => {
     const esCedula = /^\d+$/.test(termino);
     const like = `%${termino}%`;
     const startsWith = `${termino}%`;
-    let result = null;
+    const tokens = termino.split(/\s+/).filter(Boolean).slice(0, 6);
+    const firstTokenStart = `${tokens[0]}%`;
+    const extraTokenParams = tokens.slice(1).map((token, index) => ({
+      name: `token${index}Contains`,
+      type: sql.NVarChar(120),
+      value: `%${token}%`,
+    }));
+    const firstTokenWhere = `
+      (
+        c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
+        OR c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
+        OR c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
+        OR c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
+        OR c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
+      )
+    `;
+    const extraTokenWhere = extraTokenParams.map(({ name }) => `
+      fn.D_nombre_completo COLLATE Latin1_General_CI_AI LIKE @${name}
+    `).join(' AND ');
+    const tokenWhere = [firstTokenWhere, extraTokenWhere].filter(Boolean).join(' AND ');
 
-    if (esCedula) {
-      result = await db.query(`
-        ${SELECT_BUSQUEDA_CLIENTES}
-        WHERE c.D_numero_identificacion LIKE @startsWith
-        ORDER BY
-          CASE WHEN c.D_numero_identificacion = @termino THEN 0 ELSE 1 END,
-          c.D_numero_identificacion,
-          c.C_cliente;
-      `, [
-        { name: 'termino', type: sql.NVarChar(100), value: termino },
-        { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
-        { name: 'limite', type: sql.Int, value: limite },
-      ]);
-    } else {
-      result = await db.query(`
-        ${SELECT_BUSQUEDA_CLIENTES}
-        WHERE
-          c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @like
-        ORDER BY
-          CASE
-            WHEN c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 0
-            WHEN c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
-            WHEN c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
-            WHEN c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 3
-            ELSE 4
-          END,
-          c.D_apellido_1,
-          c.D_apellido_2,
-          c.D_nombre_1,
-          c.C_cliente;
-      `, [
-        { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
-        { name: 'like', type: sql.NVarChar(120), value: like },
-        { name: 'limite', type: sql.Int, value: limite },
-      ]);
-
-      if (!result.recordset.length && termino.length >= 2) {
-        const lugar = await db.query(`
-            SELECT TOP 1 tipo, provincia, canton, distrito
-            FROM (
-              SELECT 1 AS orden, 'provincia' AS tipo, N_provincia AS provincia, CAST(NULL AS SMALLINT) AS canton, CAST(NULL AS INT) AS distrito
-              FROM dbo.cat_Provincia
-              WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-              UNION ALL
-              SELECT 2, 'canton', C_provincia, N_canton, CAST(NULL AS INT)
-              FROM dbo.cat_Canton
-              WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-              UNION ALL
-              SELECT 3, 'distrito', CAST(NULL AS TINYINT), C_canton, N_distrito
-              FROM dbo.cat_Distrito
-              WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-            ) x
-            ORDER BY orden;
-          `, [
-          { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
-        ]);
-
-        const lugarRow = lugar.recordset[0];
-        if (lugarRow) {
-        result = await db.query(`
-          ${SELECT_BUSQUEDA_CLIENTES}
-          WHERE
-            (@provincia IS NULL OR c.C_provincia = @provincia)
-            AND (@canton IS NULL OR c.C_canton = @canton)
-            AND (@distrito IS NULL OR c.C_distrito = @distrito)
-          ORDER BY c.C_cliente;
-        `, [
-          { name: 'provincia', type: sql.TinyInt, value: lugarRow.provincia },
-          { name: 'canton', type: sql.SmallInt, value: lugarRow.canton },
-          { name: 'distrito', type: sql.Int, value: lugarRow.distrito },
-          { name: 'limite', type: sql.Int, value: limite },
-        ]);
-        }
-      }
-    }
-
-    if (!result) {
-      result = await db.query(`
-      SELECT TOP (@limite)
-        c.C_cliente,
-        c.D_numero_identificacion,
+    let result = await db.query(`
+      ${SELECT_BUSQUEDA_CLIENTES}
+      WHERE ${esCedula ? 'c.D_numero_identificacion LIKE @like' : tokenWhere}
+      ORDER BY
+        CASE
+          WHEN c.D_numero_identificacion = @termino THEN 0
+          WHEN c.D_nombre_1 COLLATE Latin1_General_CI_AI = @termino THEN 1
+          WHEN c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
+          WHEN c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 3
+          WHEN c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 4
+          WHEN c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 5
+          WHEN c.D_numero_identificacion LIKE @startsWith THEN 6
+          ELSE 7
+        END,
         c.D_nombre_1,
         c.D_nombre_2,
         c.D_apellido_1,
         c.D_apellido_2,
-        COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(
-          COALESCE(c.D_nombre_1, ''),
-          CASE WHEN c.D_nombre_2 IS NULL OR c.D_nombre_2 = '' THEN '' ELSE CONCAT(' ', c.D_nombre_2) END,
-          CASE WHEN c.D_apellido_1 IS NULL OR c.D_apellido_1 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_1) END,
-          CASE WHEN c.D_apellido_2 IS NULL OR c.D_apellido_2 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_2) END
-        ))), ''), c.D_nombre_juridico) AS D_nombre_completo,
-        CASE c.C_tipo_persona
-          WHEN 1 THEN 'Fisico'
-          WHEN 2 THEN 'Juridico'
-          ELSE CONCAT('Tipo ', c.C_tipo_persona)
-        END AS T_tipo_persona,
-        c.D_correo_electronico,
-        c.D_telefono,
-        c.F_nacimiento_const,
-        c.C_tipo_persona,
-        c.C_provincia,
-        c.C_canton,
-        c.C_distrito,
-        c.D_cod_actividad,
-        c.C_justificacion_ingreso,
-        c.M_ingreso_mensual,
-        c.B_es_pep,
-        c.B_es_sujeto_obligado,
-        c.B_es_residente,
-        c.D_estado_cliente,
-        pr.D_descripcion AS D_provincia,
-        ca.D_descripcion AS D_canton,
-        di.D_descripcion AS D_distrito
-      FROM dbo.Cliente c
-      LEFT JOIN dbo.cat_Provincia pr ON pr.N_provincia = c.C_provincia
-      LEFT JOIN dbo.cat_Canton ca ON ca.N_canton = c.C_canton AND ca.C_provincia = c.C_provincia
-      LEFT JOIN dbo.cat_Distrito di ON di.N_distrito = c.C_distrito AND di.C_canton = c.C_canton
-      WHERE
-        c.D_numero_identificacion LIKE @startsWith
-        OR (
-          @cedula IS NULL AND (
-            c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @like
-            OR pr.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR ca.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR di.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-          )
-        )
-      ORDER BY
-        CASE
-          WHEN c.D_numero_identificacion LIKE @startsWith THEN 0
-          WHEN c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
-          WHEN c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
-          WHEN c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @like THEN 3
-          ELSE 4
-        END,
-        c.D_apellido_1,
-        c.D_nombre_1,
         c.C_cliente;
     `, [
-      { name: 'termino', type: sql.NVarChar(100), value: esCedula ? null : termino },
-      { name: 'cedula', type: sql.NVarChar(50), value: esCedula ? termino : null },
+      { name: 'termino', type: sql.NVarChar(100), value: termino },
       { name: 'like', type: sql.NVarChar(120), value: like },
       { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
+      { name: 'firstTokenStart', type: sql.NVarChar(120), value: firstTokenStart },
       { name: 'limite', type: sql.Int, value: limite },
+      ...extraTokenParams,
     ]);
+
+    if (!esCedula && result.recordset.length === 0) {
+      result = await db.query(`
+        ${SELECT_BUSQUEDA_CLIENTES}
+        WHERE
+          pr.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR ca.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR di.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+        ORDER BY
+          CASE
+            WHEN pr.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 0
+            WHEN ca.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
+            WHEN di.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
+            ELSE 3
+          END,
+          c.C_cliente;
+      `, [
+        { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
+        { name: 'limite', type: sql.Int, value: limite },
+      ]);
     }
 
     const data = result.recordset.map((c) => ({
