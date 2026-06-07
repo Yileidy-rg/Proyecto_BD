@@ -22,10 +22,10 @@ const API = {
 
 // ── Paleta fondo claro ────────────────────────────────────────────────────────
 const C = {
-  bg:         '#f1f5f9',
+  bg:         '#eef3f8',
   surface:    '#ffffff',
-  surfaceAlt: '#f8fafc',
-  border:     '#e2e8f0',
+  surfaceAlt: '#f7f9fc',
+  border:     '#dde6ef',
   borderDark: '#cbd5e1',
   accent:     '#2563eb',
   accentLight:'#dbeafe',
@@ -36,12 +36,12 @@ const C = {
   danger:     '#dc2626',
   dangerBg:   '#fee2e2',
   text:       '#0f172a',
-  textMid:    '#475569',
-  textMuted:  '#94a3b8',
-  sidebar:    '#1e293b',
-  sidebarHov: '#334155',
-  sidebarAct: '#3b82f6',
-  sidebarTxt: '#e2e8f0',
+  textMid:    '#40566f',
+  textMuted:  '#8a9ab0',
+  sidebar:    '#172033',
+  sidebarHov: '#22304a',
+  sidebarAct: '#2f6fed',
+  sidebarTxt: '#d7e1ee',
 };
 
 const RIESGO_C = { BAJO: '#16a34a', MEDIO: '#d97706', ALTO: '#dc2626' };
@@ -53,26 +53,16 @@ const fmtDate = (d) => { try { return d ? new Date(d).toLocaleDateString('es-CR'
 // ── Atoms ─────────────────────────────────────────────────────────────────────
 
 const BienvenidaClientes = () => (
-  <div style={{ textAlign:'center', padding:'48px 24px', color:C.textMid }}>
-    <div style={{ fontSize:48, marginBottom:16 }}>🏦</div>
-    <div style={{ fontSize:22, fontWeight:900, color:C.text, marginBottom:8 }}>
-      SICVECA — Sistema de Control y Verificación de Clientes
-    </div>
-    <div style={{ fontSize:14, color:C.textMuted, marginBottom:24 }}>
-      Proyecto Bases de Datos · Grupo 2 · I Semestre 2026
-    </div>
-    <div style={{ display:'flex', justifyContent:'center', gap:12, flexWrap:'wrap', marginBottom:24 }}>
-      {['Carlos Rodríguez','Darnell Estrada','Meylin López','Reychell Acuña', 'Yileidy Rivera'].map(nombre => (
-        <span key={nombre} style={{
-          background: C.accentLight, color: C.accent,
-          border: `1px solid ${C.accent}30`, borderRadius: 20,
-          padding:'6px 16px', fontSize:13, fontWeight:600
-        }}>{nombre}</span>
+  <div style={{ textAlign:'center', padding:'56px 28px', color:C.textMid }}>
+    <div style={{ width:56, height:56, margin:'0 auto 18px', borderRadius:14, background:C.accentLight, color:C.accent, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:900, fontSize:18 }}>SC</div>
+    <div style={{ fontSize:24, lineHeight:1.25, fontWeight:900, color:C.text, marginBottom:10 }}>SICVECA</div>
+    <div style={{ fontSize:15, color:C.textMuted, marginBottom:24 }}>Sistema de Control y Verificacion de Clientes</div>
+    <div style={{ display:'flex', justifyContent:'center', gap:10, flexWrap:'wrap', marginBottom:24 }}>
+      {['Carlos Rodriguez','Darnell Estrada','Meylin Lopez','Reychell Acuna', 'Yileidy Rivera'].map(nombre => (
+        <span key={nombre} style={{ background:C.surfaceAlt, color:C.textMid, border:`1px solid ${C.border}`, borderRadius:20, padding:'7px 14px', fontSize:13, fontWeight:650 }}>{nombre}</span>
       ))}
     </div>
-    <div style={{ fontSize:13, color:C.textMuted }}>
-      🔍 Escribí un nombre o cédula para buscar en el padrón
-    </div>
+    <div style={{ fontSize:14, color:C.textMuted }}>Escriba un nombre, cedula o ubicacion para iniciar la busqueda.</div>
   </div>
 );
 
@@ -84,18 +74,20 @@ const Spinner = () => (
 );
 
 const ErrorBox = ({ msg, onRetry }) => (
-  <div style={{ background:C.dangerBg, border:`1px solid ${C.danger}30`, borderRadius:10, padding:'14px 18px', color:C.danger, fontSize:13, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-    <span>⚠️ {msg}</span>
-    {onRetry && <button onClick={onRetry} style={{ background:C.danger, color:'#fff', border:'none', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontSize:12, fontWeight:700 }}>Reintentar</button>}
+  <div style={{ background:C.dangerBg, border:`1px solid ${C.danger}30`, borderRadius:10, padding:'14px 18px', color:C.danger, fontSize:14, display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+    <span>{msg}</span>
+    {onRetry && <button onClick={onRetry} style={{ background:C.danger, color:'#fff', border:'none', borderRadius:8, padding:'7px 12px', cursor:'pointer', fontSize:13, fontWeight:750 }}>Reintentar</button>}
   </div>
 );
 
-const EmptyState = ({ icon='📭', msg='Sin datos registrados' }) => (
+const EmptyState = ({ icon='--', msg='Sin datos registrados' }) => (
   <div style={{ textAlign:'center', padding:'48px 24px', color:C.textMuted }}>
-    <div style={{ fontSize:40, marginBottom:12 }}>{icon}</div>
-    <div style={{ fontSize:14 }}>{msg}</div>
+    <div style={{ width:48, height:48, margin:'0 auto 14px', borderRadius:14, background:C.surfaceAlt, border:`1px solid ${C.border}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:900 }}>{icon}</div>
+    <div style={{ fontSize:15 }}>{msg}</div>
   </div>
 );
+
+
 
 const Badge = ({ color, bg, children }) => (
   <span style={{ background: bg||color+'20', color, border:`1px solid ${color}40`, borderRadius:20, padding:'3px 10px', fontSize:11, fontWeight:700, whiteSpace:'nowrap' }}>
@@ -104,14 +96,14 @@ const Badge = ({ color, bg, children }) => (
 );
 
 const Card = ({ children, style={} }) => (
-  <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, boxShadow:'0 1px 3px #0000000a', ...style }}>
+  <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, boxShadow:'0 8px 22px #0f172a0d', ...style }}>
     {children}
   </div>
 );
 
 const SectionHeader = ({ title, action }) => (
-  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-    <h2 style={{ margin:0, fontSize:22, fontWeight:800, color:C.text }}>{title}</h2>
+  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:22, gap:16, flexWrap:'wrap' }}>
+    <h2 style={{ margin:0, fontSize:26, lineHeight:1.2, fontWeight:850, color:C.text, letterSpacing:0 }}>{title}</h2>
     {action}
   </div>
 );
@@ -126,19 +118,20 @@ const Btn = ({ onClick, variant='primary', disabled, children, small, type='butt
   };
   return (
     <button type={type} onClick={onClick} disabled={disabled}
-      style={{ ...styles[variant], borderRadius:8, padding: small ? '5px 12px' : '9px 18px',
-        fontSize: small ? 12 : 14, fontWeight:700, cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1, transition:'all 0.15s', fontFamily:'inherit', whiteSpace:'nowrap' }}
+      style={{ ...styles[variant], borderRadius:8, padding: small ? '6px 10px' : '11px 18px',
+        fontSize: small ? 12 : 15, lineHeight:1.2, fontWeight:750, cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.55 : 1, transition:'all 0.15s', fontFamily:'inherit', whiteSpace:'nowrap',
+        boxShadow: variant === 'primary' || variant === 'success' ? '0 8px 18px #1d4ed820' : 'none' }}
     >{children}</button>
   );
 };
 
 const Input = ({ label, value, onChange, type='text', placeholder, required, style={} }) => (
-  <div style={{ marginBottom:14, ...style }}>
-    {label && <label style={{ display:'block', fontSize:12, color:C.textMid, marginBottom:5, fontWeight:600 }}>{label}{required && <span style={{ color:C.danger }}> *</span>}</label>}
+  <div style={{ marginBottom:15, ...style }}>
+    {label && <label style={{ display:'block', fontSize:13, color:C.textMid, marginBottom:6, fontWeight:650 }}>{label}{required && <span style={{ color:C.danger }}> *</span>}</label>}
     <input type={type} value={value||''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-      style={{ width:'100%', background:C.surface, border:`1px solid ${C.borderDark}`, borderRadius:8, padding:'9px 12px',
-        color:C.text, fontSize:14, outline:'none', boxSizing:'border-box', fontFamily:'inherit',
+      style={{ width:'100%', background:C.surface, border:`1px solid ${C.borderDark}`, borderRadius:8, padding:'11px 12px',
+        color:C.text, fontSize:15, outline:'none', boxSizing:'border-box', fontFamily:'inherit',
         transition:'border-color 0.15s' }}
       onFocus={e => e.target.style.borderColor=C.accent}
       onBlur={e  => e.target.style.borderColor=C.borderDark}
@@ -147,11 +140,11 @@ const Input = ({ label, value, onChange, type='text', placeholder, required, sty
 );
 
 const Select = ({ label, value, onChange, options, required }) => (
-  <div style={{ marginBottom:14 }}>
-    {label && <label style={{ display:'block', fontSize:12, color:C.textMid, marginBottom:5, fontWeight:600 }}>{label}{required && <span style={{ color:C.danger }}> *</span>}</label>}
+  <div style={{ marginBottom:15 }}>
+    {label && <label style={{ display:'block', fontSize:13, color:C.textMid, marginBottom:6, fontWeight:650 }}>{label}{required && <span style={{ color:C.danger }}> *</span>}</label>}
     <select value={value||''} onChange={e => onChange(e.target.value)}
       style={{ width:'100%', background:C.surface, border:`1px solid ${C.borderDark}`, borderRadius:8,
-        padding:'9px 12px', color:C.text, fontSize:14, fontFamily:'inherit', cursor:'pointer' }}>
+        padding:'11px 12px', color:C.text, fontSize:15, fontFamily:'inherit', cursor:'pointer' }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   </div>
@@ -163,12 +156,12 @@ const Table = ({ cols, rows, loading, error, onRetry, emptyMsg, emptyIcon, empty
   if (!rows?.length) return emptyComponent || <EmptyState msg={emptyMsg} icon={emptyIcon} />;
   return (
     <div style={{ overflowX:'auto' }}>
-      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:14 }}>
         <thead>
           <tr style={{ background:C.surfaceAlt }}>
             {cols.map(c => (
-              <th key={c.key} style={{ padding:'10px 14px', textAlign:'left', color:C.textMid, fontWeight:700,
-                borderBottom:`2px solid ${C.border}`, whiteSpace:'nowrap', fontSize:11, letterSpacing:0.5,
+              <th key={c.key} style={{ padding:'12px 16px', textAlign:'left', color:C.textMid, fontWeight:750,
+                borderBottom:`1px solid ${C.border}`, whiteSpace:'nowrap', fontSize:12, letterSpacing:0,
                 textTransform:'uppercase' }}>{c.label}</th>
             ))}
           </tr>
@@ -179,7 +172,7 @@ const Table = ({ cols, rows, loading, error, onRetry, emptyMsg, emptyIcon, empty
               onMouseOver={e => e.currentTarget.style.background=C.surfaceAlt}
               onMouseOut={e  => e.currentTarget.style.background='transparent'}>
               {cols.map(c => (
-                <td key={c.key} style={{ padding:'10px 14px', color:C.text, verticalAlign:'middle' }}>
+                <td key={c.key} style={{ padding:'12px 16px', color:C.text, verticalAlign:'middle', lineHeight:1.45 }}>
                   {c.render ? c.render(row) : (row[c.key] ?? '—')}
                 </td>
               ))}
@@ -467,7 +460,7 @@ const FORM_CLIENTE_INIT = {
   return (
     <div>
       <SectionHeader
-        title="👤 Clientes"
+        title="Clientes"
         action={<Btn onClick={openCreate}>+ Nuevo Cliente</Btn>}
       />
 
@@ -477,18 +470,19 @@ const FORM_CLIENTE_INIT = {
           <input
             value={search}
             onChange={e => onSearch(e.target.value)}
-            placeholder="🔍 Buscar cliente por nombre, cédula..."
+            placeholder="Buscar por nombre, cedula o ubicacion"
             style={{
               width: '100%',
-              padding: '11px 40px 11px 16px',
+              padding: '14px 44px 14px 18px',
               borderRadius: 10,
               border: `1px solid ${C.borderDark}`,
-              fontSize: 14,
+              fontSize: 16,
               outline: 'none',
               boxSizing: 'border-box',
               fontFamily: 'inherit',
               background: C.surface,
               color: C.text,
+              boxShadow: '0 8px 22px #0f172a0a',
             }}
           />
           {/* Botón X para limpiar */}
@@ -500,7 +494,7 @@ const FORM_CLIENTE_INIT = {
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: C.textMuted, fontSize: 16, lineHeight: 1,
               }}
-            >✕</button>
+            >x</button>
           )}
         </div>
 
@@ -509,25 +503,25 @@ const FORM_CLIENTE_INIT = {
           <div style={{
             position: 'absolute', top: '100%', left: 0, right: 0,
             background: '#fff', border: `1px solid ${C.border}`,
-            borderRadius: 8, zIndex: 1000, marginTop: 4,
-            boxShadow: '0 8px 20px rgba(0,0,0,0.1)'
+            borderRadius: 10, zIndex: 1000, marginTop: 8, maxHeight:360, overflowY:'auto',
+            boxShadow: '0 18px 40px #0f172a1a'
           }}>
            {sugg.map((s, i) => (
   <div
     key={i}
    onClick={() => selectClient(s)}
     style={{
-      padding: '10px 14px',
+      padding: '14px 16px',
       cursor: 'pointer',
-      borderBottom: '1px solid #eee'
+      borderBottom: `1px solid ${C.border}`
     }}
-    onMouseOver={e => e.currentTarget.style.background = '#f5f5f5'}
+    onMouseOver={e => e.currentTarget.style.background = '#f8fafc'}
     onMouseOut={e => e.currentTarget.style.background = '#fff'}
   >
-    <div style={{ fontWeight: 600, color: '#0f172a' }}>
+    <div style={{ fontWeight: 800, color: C.text, fontSize: 15 }}>
       {s.D_nombre_completo || '—'}
     </div>
-    <div style={{ fontSize: 12, color: '#666' }}>
+    <div style={{ fontSize: 13, color: C.textMid, marginTop: 4 }}>
       Cédula: {s.D_numero_identificacion || '—'}
       {s.T_tipo_persona ? ` · ${s.T_tipo_persona}` : ''}
       {s.D_provincia ? ` · ${[s.D_provincia, s.D_canton, s.D_distrito].filter(Boolean).join(', ')}` : ''}
@@ -537,8 +531,6 @@ const FORM_CLIENTE_INIT = {
           </div>
         )}
       </div>
-
-      {/* Indicador de filtro activo */}
       {/* 📋 TABLA */}
       {sugg.length === 0 && <Card>
         <Table
@@ -562,8 +554,8 @@ const FORM_CLIENTE_INIT = {
               key: 'acciones', label: '',
               render: r => (
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <Btn small onClick={() => openEdit(r)}>✏️</Btn>
-                  <Btn small variant="danger" onClick={() => handleDelete(r.id_cliente)}>🗑️</Btn>
+                  <Btn small variant="ghost" onClick={() => openEdit(r)}>Editar</Btn>
+                  <Btn small variant="danger" onClick={() => handleDelete(r.id_cliente)}>Eliminar</Btn>
                 </div>
               )
             }
@@ -605,7 +597,7 @@ const FORM_CLIENTE_INIT = {
   );
 }
 // ── Sección genérica CRUD ─────────────────────────────────────────────────────
-function CrudSection({ title, icon, endpoint, idField, cols, formFields, formInit, validateFn, emptyMsg }) {
+function CrudSection({ title, icon, endpoint, idField, cols, formFields, formInit, validateFn, emptyMsg, hideActions = false }) {
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
@@ -659,15 +651,15 @@ function CrudSection({ title, icon, endpoint, idField, cols, formFields, formIni
     ...cols,
     { key:'acciones', label:'', render: r => (
       <div style={{ display:'flex', gap:6 }}>
-        <Btn small variant="ghost" onClick={() => openEdit(r)}>✏️</Btn>
-        <Btn small variant="danger" onClick={() => handleDelete(r[idField])}>🗑️</Btn>
+        <Btn small variant="ghost" onClick={() => openEdit(r)}>Editar</Btn>
+        <Btn small variant="danger" onClick={() => handleDelete(r[idField])}>Eliminar</Btn>
       </div>
     )},
   ];
 
   return (
     <div>
-      <SectionHeader title={`${icon} ${title}`} action={<Btn onClick={openCreate}>+ Nuevo</Btn>} />
+      <SectionHeader title={title} action={<Btn onClick={openCreate}>+ Nuevo</Btn>} />
       <Card>
         <Table loading={loading} error={error} onRetry={load} cols={allCols} rows={rows}
           emptyMsg={emptyMsg||`No hay ${title.toLowerCase()} registrados`} />
@@ -733,10 +725,10 @@ function Transacciones({ toast }) {
 
   return (
     <div>
-      <SectionHeader title="💳 Transacciones" action={<Btn onClick={() => setModal(true)}>+ Nueva Transacción</Btn>} />
+      <SectionHeader title="Movimientos" action={<Btn onClick={() => setModal(true)}>+ Nueva Transaccion</Btn>} />
       <Card>
         <Table loading={loading} error={error} onRetry={load} rows={rows}
-          emptyMsg="No hay transacciones registradas" emptyIcon="💳"
+          emptyMsg="No hay transacciones registradas" emptyIcon="TX"
           cols={[
             { key:'id_transaccion',   label:'ID' },
             { key:'id_producto',      label:'Producto' },
@@ -798,7 +790,7 @@ function Riesgo({ toast, clienteIdInicial }) {
 
   return (
     <div>
-      <SectionHeader title="📊 Calificadora de Riesgo" />
+      <SectionHeader title="Calificadora de Riesgo" />
       <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>Evaluación ponderada por variables según tipo de cliente (físico/jurídico). Guarda resultado en EVALUACION_RIESGO.</p>
 
       <Card style={{ marginBottom:20, padding:20 }}>
@@ -806,7 +798,7 @@ function Riesgo({ toast, clienteIdInicial }) {
           <div style={{ flex:1 }}><Input label="ID del Cliente" value={idCliente} onChange={setIdCliente} type="number" placeholder="Ej: 1" /></div>
           <div style={{ marginBottom:14 }}>
             <Btn onClick={evaluar} disabled={evaluando||!idCliente} variant="success">
-              {evaluando ? '⏳ Calculando…' : '📊 Evaluar Riesgo'}
+              {evaluando ? 'Calculando...' : 'Evaluar Riesgo'}
             </Btn>
           </div>
         </div>
@@ -845,7 +837,7 @@ function Riesgo({ toast, clienteIdInicial }) {
       <h3 style={{ color:C.text, marginBottom:12, fontSize:16, fontWeight:700 }}>Historial de Evaluaciones</h3>
       <Card>
         <Table loading={loadingH} error={errorH} onRetry={loadHistorial} rows={historial}
-          emptyMsg="Sin evaluaciones realizadas" emptyIcon="📊"
+          emptyMsg="Sin evaluaciones realizadas" emptyIcon="RG"
           cols={[
             { key:'id_evaluacion',   label:'ID' },
             { key:'id_cliente',      label:'Cliente' },
@@ -875,7 +867,7 @@ const ESCENARIOS_CONFIG = {
   },
   escenario2: {
     n:2,
-    title:'Transacciones abril',
+    title:'Transacciones',
     desc:'Genera transacciones aleatorias de abril por cliente y producto para poblar el flujo transaccional.',
     button:'Generar transacciones',
     endpoint:'/escenarios/2',
@@ -903,7 +895,7 @@ function Escenario({ toast, config }) {
   return (
     <div>
       <SectionHeader title={config.title} />
-      <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>{config.desc}</p>
+      <p style={{ color:C.textMid, marginBottom:22, fontSize:16, lineHeight:1.55, maxWidth:720 }}>{config.desc}</p>
 
       <div style={{ display:'flex', gap:12, marginBottom:24 }}>
         <Btn onClick={run} disabled={running}>
@@ -975,11 +967,11 @@ function Xml({ toast }) {
   return (
     <div>
       <SectionHeader title="XML SICVECA" />
-      <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>Genera el XML completo con la estructura de Legitimacion con Base en Riesgos y aplica sus validaciones.</p>
+      <p style={{ color:C.textMid, marginBottom:22, fontSize:16, lineHeight:1.55, maxWidth:760 }}>Genera el XML completo con la estructura de Legitimacion con Base en Riesgos y aplica sus validaciones.</p>
 
       <div style={{ display:'flex', gap:12, marginBottom:24 }}>
         <Btn onClick={generar} disabled={loading}>{loading ? 'Generando...' : 'Generar XML'}</Btn>
-        {result && <Btn variant="success" onClick={descargar}>⬇️ Descargar .xml</Btn>}
+        {result && <Btn variant="success" onClick={descargar}>Descargar .xml</Btn>}
       </div>
 
       {result && (
@@ -1000,7 +992,7 @@ function Xml({ toast }) {
 
           {result.validaciones?.errores?.length > 0 ? (
             <Card style={{ marginBottom:16, padding:16, borderColor:`${C.danger}40` }}>
-              <h4 style={{ color:C.danger, margin:'0 0 10px', fontSize:14 }}>⚠️ Errores de Validación ({result.validaciones.total_errores})</h4>
+              <h4 style={{ color:C.danger, margin:'0 0 10px', fontSize:14 }}>Errores de Validacion</h4>
               <div style={{ maxHeight:200, overflowY:'auto' }}>
                 {result.validaciones.errores.map((e,i) => (
                   <div key={i} style={{ color:C.danger, fontSize:12, padding:'3px 0' }}>
@@ -1011,7 +1003,7 @@ function Xml({ toast }) {
             </Card>
           ) : (
             <div style={{ background:C.successBg, border:`1px solid ${C.success}40`, borderRadius:10, padding:'12px 16px', color:C.success, fontWeight:700, marginBottom:16, fontSize:14 }}>
-              XML válido — sin errores de validación SUGEF
+              XML valido - sin errores de validacion SUGEF
             </div>
           )}
 
@@ -1033,16 +1025,16 @@ function Xml({ toast }) {
 
 // ── App principal ─────────────────────────────────────────────────────────────
 const NAV = [
-  { id:'clientes',      label:'Clientes',      icon:'👤' },
-  { id:'productos',     label:'Productos',     icon:'📦' },
-  { id:'cuentas',       label:'Cuentas',       icon:'🏦' },
-  { id:'prestamos',     label:'Préstamos',     icon:'💰' },
-  { id:'tarjetas',      label:'Tarjetas',      icon:'💳' },
-  { id:'transacciones', label:'Transacciones', icon:'↔️'  },
-  { id:'riesgo',        label:'Riesgo',        icon:'📊' },
+  { id:'clientes',      label:'Clientes',      icon:'CL' },
+  { id:'productos',     label:'Productos',     icon:'PR' },
+  { id:'cuentas',       label:'Cuentas',       icon:'CU' },
+  { id:'prestamos',     label:'Prestamos',     icon:'CR' },
+  { id:'tarjetas',      label:'Tarjetas',      icon:'TC' },
+  { id:'transacciones', label:'Movimientos',   icon:'MV' },
+  { id:'riesgo',        label:'Riesgo',        icon:'RG' },
   { id:'escenario1',    label:'Carga mensual', icon:'CM' },
-  { id:'escenario2',    label:'Transacciones abril', icon:'TA' },
-  { id:'xml',           label:'XML SICVECA',   icon:'🔧' },
+  { id:'escenario2',    label:'Transacciones', icon:'TX' },
+  { id:'xml',           label:'XML SICVECA',   icon:'XML' },
 ];
 
 export default function App() {
@@ -1053,13 +1045,36 @@ export default function App() {
 
   // Campos para cada sección CRUD genérica
   const PRODUCTO_FIELDS = [
-    { key:'id_cliente',    label:'ID Cliente',       required:true,  type:'number' },
-    { key:'tipo_producto', label:'Tipo de Producto', required:true,  type:'number' },
-    { key:'moneda',        label:'Moneda (1=CRC)',    type:'number' },
-    { key:'fecha_apertura',label:'Fecha Apertura',   type:'date' },
-    { key:'estado',        label:'Estado', options:[{value:'ACTIVO',label:'ACTIVO'},{value:'INACTIVO',label:'INACTIVO'}] },
-    { key:'descripcion',   label:'Descripción', fullWidth:true },
+    { key:'id_cliente',    label:'ID Cliente', required:true, type:'number' },
+    { key:'tipo_producto', label:'Tipo de Producto', required:true, options:[
+      { value:'', label:'Seleccione producto' },
+      { value:'1', label:'Cuentas a la vista' },
+      { value:'2', label:'Depositos a plazo' },
+      { value:'3', label:'Cuentas expediente simplificado' },
+      { value:'4', label:'Cuentas planillas/servicios' },
+      { value:'5', label:'Depositos judiciales' },
+      { value:'6', label:'Creditos directos' },
+      { value:'7', label:'Creditos hipotecarios' },
+      { value:'8', label:'Tarjetas de credito' },
+      { value:'9', label:'Lineas de credito' },
+      { value:'10', label:'Descuento de facturas' },
+      { value:'11', label:'Leasing' },
+      { value:'12', label:'Avales y garantias' },
+      { value:'13', label:'Transferencias de fondos' },
+      { value:'14', label:'Remesas de dinero' },
+      { value:'15', label:'Compra y venta de divisas' },
+      { value:'16', label:'Fideicomisos' },
+      { value:'17', label:'Cajeros automaticos ATM' },
+      { value:'18', label:'Banca en linea/app movil' },
+      { value:'19', label:'Cajas de seguridad' },
+    ] },
+    { key:'moneda', label:'Moneda (1=CRC)', type:'number' },
+    { key:'monto', label:'Monto / Saldo inicial', type:'number' },
+    { key:'plazo_meses', label:'Plazo meses', type:'number' },
+    { key:'fecha_apertura', label:'Fecha Apertura', type:'date' },
+    { key:'estado', label:'Estado', options:[{value:'ACTIVO',label:'ACTIVO'},{value:'INACTIVO',label:'INACTIVO'}] },
   ];
+
   const CUENTA_FIELDS = [
     { key:'id_producto',    label:'ID Producto',   required:true, type:'number' },
     { key:'tipo_cuenta',    label:'Tipo Cuenta',   required:true, type:'number' },
@@ -1095,16 +1110,16 @@ export default function App() {
       case 'escenario1':    return <Escenario toast={showToast} config={ESCENARIOS_CONFIG.escenario1} />;
       case 'escenario2':    return <Escenario toast={showToast} config={ESCENARIOS_CONFIG.escenario2} />;
       case 'xml':           return <Xml           toast={showToast} />;
-      case 'productos':     return <CrudSection endpoint="productos"  idField="id_producto"  icon="📦" title="Productos"  formFields={PRODUCTO_FIELDS} formInit={toInit(PRODUCTO_FIELDS)}
-        cols={[ {key:'id_producto',label:'ID'},{key:'id_cliente',label:'Cliente'},{key:'tipo_producto',label:'Tipo'},{key:'moneda',label:'Moneda'},{key:'fecha_apertura',label:'Apertura',render:r=>fmtDate(r.fecha_apertura)},{key:'estado',label:'Estado',render:r=><Badge color={r.estado==='ACTIVO'?C.success:C.textMid} bg={r.estado==='ACTIVO'?C.successBg:C.surfaceAlt}>{r.estado}</Badge>},{key:'descripcion',label:'Descripción'} ]}
+      case 'productos':     return <CrudSection endpoint="productos"  idField="id_producto"  icon="PR" title="Productos"  formFields={PRODUCTO_FIELDS} formInit={toInit(PRODUCTO_FIELDS)}
+        cols={[ {key:'id_producto',label:'ID'},{key:'id_cliente',label:'Cliente'},{key:'tipo_producto_desc',label:'Producto',render:r=>r.tipo_producto_desc||r.tipo_producto},{key:'moneda',label:'Moneda'},{key:'fecha_apertura',label:'Apertura',render:r=>fmtDate(r.fecha_apertura)},{key:'estado',label:'Estado',render:r=><Badge color={r.estado==='ACTIVO'?C.success:C.textMid} bg={r.estado==='ACTIVO'?C.successBg:C.surfaceAlt}>{r.estado}</Badge>},{key:'descripcion',label:'Referencia'} ]}
         validateFn={f=>(!f.id_cliente||!f.tipo_producto)?'ID Cliente y Tipo son requeridos':null} toast={showToast} />;
-      case 'cuentas':       return <CrudSection endpoint="cuentas"    idField="id_cuenta"    icon="🏦" title="Cuentas"    formFields={CUENTA_FIELDS}   formInit={toInit(CUENTA_FIELDS)}
+      case 'cuentas':       return <CrudSection endpoint="cuentas"    idField="id_cuenta"    icon="CU" title="Cuentas"    formFields={CUENTA_FIELDS}   formInit={toInit(CUENTA_FIELDS)}
         cols={[ {key:'id_cuenta',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_cuenta',label:'Tipo'},{key:'numero_cuenta',label:'Número'},{key:'saldo',label:'Saldo',render:r=>fmt(r.saldo)},{key:'estado',label:'Estado'} ]}
         validateFn={f=>(!f.id_producto)?'ID Producto es requerido':null} toast={showToast} />;
-      case 'prestamos':     return <CrudSection endpoint="prestamos"  idField="id_prestamo"  icon="💰" title="Préstamos"  formFields={PRESTAMO_FIELDS} formInit={toInit(PRESTAMO_FIELDS)}
+      case 'prestamos':     return <CrudSection endpoint="prestamos"  idField="id_prestamo"  icon="CR" title="Prestamos"  formFields={PRESTAMO_FIELDS} formInit={toInit(PRESTAMO_FIELDS)}
         cols={[ {key:'id_prestamo',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_prestamo',label:'Tipo'},{key:'monto',label:'Monto',render:r=>fmt(r.monto)},{key:'plazo_meses',label:'Plazo'},{key:'tasa_interes',label:'Tasa %'},{key:'estado',label:'Estado'} ]}
         validateFn={f=>(!f.id_producto||!f.monto)?'ID Producto y Monto son requeridos':null} toast={showToast} />;
-      case 'tarjetas':      return <CrudSection endpoint="tarjetas"   idField="id_tarjeta"   icon="💳" title="Tarjetas"   formFields={TARJETA_FIELDS}  formInit={toInit(TARJETA_FIELDS)}
+      case 'tarjetas':      return <CrudSection endpoint="tarjetas"   idField="id_tarjeta"   icon="TC" title="Tarjetas"   formFields={TARJETA_FIELDS}  formInit={toInit(TARJETA_FIELDS)}
         cols={[ {key:'id_tarjeta',label:'ID'},{key:'id_producto',label:'Producto'},{key:'tipo_tarjeta',label:'Tipo'},{key:'numero_tarjeta',label:'Número'},{key:'limite_credito',label:'Límite',render:r=>fmt(r.limite_credito)},{key:'saldo_actual',label:'Saldo',render:r=>fmt(r.saldo_actual)},{key:'estado',label:'Estado'} ]}
         validateFn={f=>(!f.id_producto)?'ID Producto es requerido':null} toast={showToast} />;
       default: return null;
@@ -1112,45 +1127,47 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', fontFamily:"'Segoe UI',system-ui,sans-serif", color:C.text }}>
+    <div style={{ minHeight:'100vh', background:C.bg, display:'flex', fontFamily:"Inter, 'Segoe UI', system-ui, sans-serif", color:C.text }}>
 
       {/* Sidebar */}
-      <nav style={{ width:220, background:C.sidebar, display:'flex', flexDirection:'column', flexShrink:0, position:'sticky', top:0, height:'100vh', overflowY:'auto' }}>
-        <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid #ffffff18` }}>
-          <div style={{ color:'#60a5fa', fontWeight:900, fontSize:17, letterSpacing:-0.5 }}>SICVECA</div>
-          <div style={{ color:'#64748b', fontSize:11, marginTop:3 }}>DEV</div>
+      <nav style={{ width:248, background:C.sidebar, display:'flex', flexDirection:'column', flexShrink:0, position:'sticky', top:0, height:'100vh', overflowY:'auto', boxShadow:'8px 0 24px #0f172a12' }}>
+        <div style={{ padding:'24px 20px 18px', borderBottom:`1px solid #ffffff14` }}>
+          <div style={{ color:'#7db1ff', fontWeight:900, fontSize:20, letterSpacing:0 }}>SICVECA</div>
+          <div style={{ color:'#7b8ca5', fontSize:12, marginTop:4, fontWeight:600 }}>DEV</div>
         </div>
 
-        <div style={{ flex:1, padding:'8px 0' }}>
+        <div style={{ flex:1, padding:'12px 10px' }}>
           {NAV.map(n => {
             const active = section === n.id;
             return (
               <div key={n.id} onClick={() => setSection(n.id)}
-                style={{ padding:'10px 16px', cursor:'pointer', display:'flex', alignItems:'center', gap:10, fontSize:13,
-                  fontWeight: active ? 700 : 400,
+                style={{ padding:'11px 12px', cursor:'pointer', display:'flex', alignItems:'center', gap:11, fontSize:14,
+                  fontWeight: active ? 750 : 500,
                   color: active ? '#ffffff' : C.sidebarTxt,
                   background: active ? C.sidebarAct : 'transparent',
-                  borderLeft: `3px solid ${active ? '#93c5fd' : 'transparent'}`,
-                  transition:'all 0.15s', borderRadius: active ? '0 6px 6px 0' : 0 }}
+                  borderLeft: `3px solid ${active ? '#bfdbfe' : 'transparent'}`,
+                  transition:'all 0.15s', borderRadius:8, marginBottom:4 }}
                 onMouseOver={e => { if (!active) { e.currentTarget.style.background=C.sidebarHov; e.currentTarget.style.color='#fff'; }}}
                 onMouseOut={e  => { if (!active) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color=C.sidebarTxt; }}}
               >
-                <span style={{ fontSize:16 }}>{n.icon}</span>
-                {n.label}
+                <span style={{ width:30, height:24, borderRadius:7, display:'inline-flex', alignItems:'center', justifyContent:'center',
+                  background: active ? '#ffffff22' : '#ffffff10', color: active ? '#fff' : '#9fb2ca', fontSize:10, fontWeight:900,
+                  fontFamily:'ui-monospace, SFMono-Regular, Consolas, monospace', letterSpacing:0 }}>{n.icon}</span>
+                <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.label}</span>
               </div>
             );
           })}
         </div>
 
-        <div style={{ padding:'12px 16px', borderTop:`1px solid #ffffff18`, fontSize:11, color:'#475569' }}>
+        <div style={{ padding:'14px 20px', borderTop:`1px solid #ffffff14`, fontSize:12, color:'#65758d' }}>
           <div>SQL Server</div>
           <div style={{ color:'#334155', marginTop:2, wordBreak:'break-all' }}>database.windows.net</div>
         </div>
       </nav>
 
       {/* Content */}
-      <main style={{ flex:1, padding:28, overflowY:'auto', minWidth:0 }}>
-        <div style={{ maxWidth:1100 }}>
+      <main style={{ flex:1, padding:'32px 36px', overflowY:'auto', minWidth:0 }}>
+        <div style={{ maxWidth:1240, margin:'0 auto' }}>
           {renderSection()}
         </div>
       </main>
