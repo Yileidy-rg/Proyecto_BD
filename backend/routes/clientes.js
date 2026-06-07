@@ -104,30 +104,55 @@ router.get('/buscar/inteligente', async (req, res, next) => {
         { name: 'limite', type: sql.Int, value: limite },
       ]);
     } else {
-      const lugar = termino.length >= 2
-        ? await db.query(`
-          SELECT TOP 1 tipo, provincia, canton, distrito
-          FROM (
-            SELECT 1 AS orden, 'provincia' AS tipo, N_provincia AS provincia, CAST(NULL AS SMALLINT) AS canton, CAST(NULL AS INT) AS distrito
-            FROM dbo.cat_Provincia
-            WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-            UNION ALL
-            SELECT 2, 'canton', C_provincia, N_canton, CAST(NULL AS INT)
-            FROM dbo.cat_Canton
-            WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-            UNION ALL
-            SELECT 3, 'distrito', CAST(NULL AS TINYINT), C_canton, N_distrito
-            FROM dbo.cat_Distrito
-            WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-          ) x
-          ORDER BY orden;
-        `, [
-          { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
-        ])
-        : { recordset: [] };
+      result = await db.query(`
+        ${SELECT_BUSQUEDA_CLIENTES}
+        WHERE
+          c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @like
+        ORDER BY
+          CASE
+            WHEN c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 0
+            WHEN c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
+            WHEN c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
+            WHEN c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 3
+            ELSE 4
+          END,
+          c.D_apellido_1,
+          c.D_apellido_2,
+          c.D_nombre_1,
+          c.C_cliente;
+      `, [
+        { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
+        { name: 'like', type: sql.NVarChar(120), value: like },
+        { name: 'limite', type: sql.Int, value: limite },
+      ]);
 
-      const lugarRow = lugar.recordset[0];
-      if (lugarRow) {
+      if (!result.recordset.length && termino.length >= 2) {
+        const lugar = await db.query(`
+            SELECT TOP 1 tipo, provincia, canton, distrito
+            FROM (
+              SELECT 1 AS orden, 'provincia' AS tipo, N_provincia AS provincia, CAST(NULL AS SMALLINT) AS canton, CAST(NULL AS INT) AS distrito
+              FROM dbo.cat_Provincia
+              WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+              UNION ALL
+              SELECT 2, 'canton', C_provincia, N_canton, CAST(NULL AS INT)
+              FROM dbo.cat_Canton
+              WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+              UNION ALL
+              SELECT 3, 'distrito', CAST(NULL AS TINYINT), C_canton, N_distrito
+              FROM dbo.cat_Distrito
+              WHERE D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+            ) x
+            ORDER BY orden;
+          `, [
+          { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
+        ]);
+
+        const lugarRow = lugar.recordset[0];
+        if (lugarRow) {
         result = await db.query(`
           ${SELECT_BUSQUEDA_CLIENTES}
           WHERE
@@ -141,21 +166,7 @@ router.get('/buscar/inteligente', async (req, res, next) => {
           { name: 'distrito', type: sql.Int, value: lugarRow.distrito },
           { name: 'limite', type: sql.Int, value: limite },
         ]);
-      } else {
-        result = await db.query(`
-          ${SELECT_BUSQUEDA_CLIENTES}
-          WHERE
-            c.D_nombre_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @startsWith
-            OR c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @like
-          ORDER BY c.C_cliente;
-        `, [
-          { name: 'startsWith', type: sql.NVarChar(120), value: startsWith },
-          { name: 'like', type: sql.NVarChar(120), value: like },
-          { name: 'limite', type: sql.Int, value: limite },
-        ]);
+        }
       }
     }
 

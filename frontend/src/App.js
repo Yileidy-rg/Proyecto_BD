@@ -539,50 +539,8 @@ const FORM_CLIENTE_INIT = {
       </div>
 
       {/* Indicador de filtro activo */}
-      {clienteSeleccionado && (
-  <div style={{
-    display:'flex', alignItems:'center', justifyContent:'space-between',
-    padding:'14px 18px', marginBottom:16,
-    background: C.accentLight, border:`1px solid ${C.accent}30`,
-    borderRadius:10, flexWrap:'wrap', gap:12
-  }}>
-    <div>
-      <div style={{ fontWeight:800, fontSize:15, color:C.text }}>
-        {clienteSeleccionado.D_nombre_completo}
-      </div>
-      <div style={{ fontSize:12, color:C.textMid, marginTop:3 }}>
-        Cédula: {clienteSeleccionado.D_numero_identificacion} · ID: {clienteSeleccionado.C_cliente}
-      </div>
-    </div>
-    <div style={{ display:'flex', gap:8 }}>
-      <Btn variant="success" onClick={() => {
-        setRiesgoId(String(clienteSeleccionado.C_cliente));
-        setSection('riesgo');
-      }}>📊 Evaluar Riesgo</Btn>
-      <Btn variant="ghost" onClick={() => {
-        setClienteSeleccionado(null);
-setSearch('');
-setFiltered(null);
-      }}>✕ Quitar</Btn>
-    </div>
-  </div>
-)}
-      {filtered !== null && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12,
-          padding: '8px 14px', background: C.accentLight, borderRadius: 8,
-          fontSize: 13, color: C.accent, fontWeight: 600
-        }}>
-          <span>🔍 Mostrando resultado para: "{search}"</span>
-          <button onClick={clearSearch} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: C.accent, fontWeight: 800, fontSize: 14
-          }}>✕ Ver todos</button>
-        </div>
-      )}
-
       {/* 📋 TABLA */}
-      <Card>
+      {sugg.length === 0 && <Card>
         <Table
           loading={loading}
   error={error}
@@ -616,7 +574,7 @@ setFiltered(null);
             {tableRows.length} cliente(s)
           </div>
         )}
-      </Card>
+      </Card>}
 
       {/* MODAL */}
       <Modal open={modal} onClose={() => setModal(false)} title={editId ? 'Editar Cliente' : 'Nuevo Cliente'}>
@@ -906,66 +864,65 @@ function Riesgo({ toast, clienteIdInicial }) {
   );
 }
 
-// ── Sección Escenarios ────────────────────────────────────────────────────────
-function Escenarios({ toast }) {
-  const [running, setRunning] = useState({});
-  const [logs, setLogs]       = useState({});
+const ESCENARIOS_CONFIG = {
+  escenario1: {
+    n:1,
+    title:'Carga mensual',
+    desc:'Genera la carga mensual automatizada de clientes, productos y transacciones acumulativas.',
+    button:'Generar carga mensual',
+    endpoint:'/escenarios/1',
+    color:C.accent,
+  },
+  escenario2: {
+    n:2,
+    title:'Transacciones abril',
+    desc:'Genera transacciones aleatorias de abril por cliente y producto para poblar el flujo transaccional.',
+    button:'Generar transacciones',
+    endpoint:'/escenarios/2',
+    color:'#7c3aed',
+  },
+};
 
-  const run = async (n, endpoint) => {
-    setRunning(r => ({...r,[n]:true}));
+function Escenario({ toast, config }) {
+  const [running, setRunning] = useState(false);
+  const [log, setLog] = useState(null);
+
+  const run = async () => {
+    setRunning(true);
     try {
-      const r = await API.post(endpoint, {});
-      setLogs(l => ({...l,[n]:r}));
-      toast(`Escenario ${n} ejecutado correctamente`, 'success');
-    } catch (e) { toast(`Error Escenario ${n}: ${e.message}`, 'error'); }
-    finally { setRunning(r => ({...r,[n]:false})); }
+      const r = await API.post(config.endpoint, {});
+      setLog(r);
+      toast(`${config.title} ejecutado correctamente`, 'success');
+    } catch (e) {
+      toast(`Error en ${config.title}: ${e.message}`, 'error');
+    } finally {
+      setRunning(false);
+    }
   };
-
-  const escenarios = [
-    { n:1, title:'Escenario 1 — Inserción mensual',     pts:'15 pts', desc:'Inserta 5 clientes nuevos por cada mes transcurrido del año, con un producto diferente y 5 transacciones cada uno. Acumula en cada ejecución.', endpoint:'/escenarios/1', color:C.accent    },
-    { n:2, title:'Escenario 2 — Transacciones abril',   pts:'15 pts', desc:'Genera 27 transacciones de abril distribuidas en los productos de 5 clientes aleatorios, cubriendo todos los tipos de gasto.', endpoint:'/escenarios/2', color:'#7c3aed' },
-    { n:3, title:'Escenario 3 - XML SICVECA',            pts:'15 pts', desc:'Genera el XML completo con encabezado, clientes por riesgo, riesgo alto, productos, canales, zona geografica y monitoreo, aplicando validaciones.', endpoint:'/escenarios/3', color:C.success },
-  ];
 
   return (
     <div>
-      <SectionHeader title="🧪 Escenarios de Prueba" />
-      <p style={{ color:C.textMid, marginBottom:24, fontSize:14 }}>Cada escenario puede ejecutarse N veces sin eliminar datos anteriores (acumulativo).</p>
+      <SectionHeader title={config.title} />
+      <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>{config.desc}</p>
 
-      <div style={{ display:'grid', gap:16 }}>
-        {escenarios.map(s => (
-          <Card key={s.n} style={{ padding:0, overflow:'hidden' }}>
-            <div style={{ borderLeft:`4px solid ${s.color}`, padding:'20px 24px' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:16, flexWrap:'wrap' }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
-                    <h3 style={{ margin:0, fontSize:15, fontWeight:800, color:C.text }}>{s.title}</h3>
-                    <Badge color={C.success} bg={C.successBg}>{s.pts}</Badge>
-                  </div>
-                  <p style={{ margin:0, color:C.textMid, fontSize:13, lineHeight:1.6 }}>{s.desc}</p>
-                </div>
-                <Btn onClick={() => run(s.n, s.endpoint)} disabled={running[s.n]} variant="success">
-                  {running[s.n] ? '⏳ Ejecutando…' : '▶ Ejecutar'}
-                </Btn>
-              </div>
-
-              {logs[s.n] && (
-                <div style={{ marginTop:16, background:C.successBg, borderRadius:8, padding:'12px 14px', border:`1px solid ${C.success}30` }}>
-                  <div style={{ fontWeight:700, color:C.success, fontSize:13, marginBottom:6 }}>✅ {logs[s.n].message}</div>
-                  <pre style={{ margin:0, fontSize:11, color:C.textMid, maxHeight:s.n === 3 ? 360 : 160, overflow:'auto', whiteSpace:'pre-wrap', wordBreak:'break-word', fontFamily:'monospace' }}>
-                    {logs[s.n].data?.xml || JSON.stringify(logs[s.n].data?.slice?.(0,8)||logs[s.n].data, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
+      <div style={{ display:'flex', gap:12, marginBottom:24 }}>
+        <Btn onClick={run} disabled={running}>
+          {running ? 'Generando...' : config.button}
+        </Btn>
       </div>
+
+      {log && (
+        <div style={{ background:C.successBg, borderRadius:8, padding:'12px 14px', border:`1px solid ${C.success}30` }}>
+          <div style={{ fontWeight:700, color:C.success, fontSize:13, marginBottom:6 }}>OK {log.message}</div>
+          <pre style={{ margin:0, fontSize:11, color:C.textMid, maxHeight:180, overflow:'auto', whiteSpace:'pre-wrap', wordBreak:'break-word', fontFamily:'monospace' }}>
+            {JSON.stringify(log.data?.slice?.(0,8)||log.data, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Sección XML ───────────────────────────────────────────────────────────────
 function Xml({ toast }) {
   const [result, setResult]   = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1000,7 +957,7 @@ function Xml({ toast }) {
           registros_cuadro_a: data.resumen?.Q_registros_cuadro_A,
         },
       });
-      toast('Escenario 3 ejecutado: XML generado', 'success');
+      toast('XML SICVECA generado', 'success');
     }
     catch (e) { toast(e.message, 'error'); }
     finally { setLoading(false); }
@@ -1017,11 +974,11 @@ function Xml({ toast }) {
 
   return (
     <div>
-      <SectionHeader title="Escenario 3 - XML SICVECA" />
+      <SectionHeader title="XML SICVECA" />
       <p style={{ color:C.textMid, marginBottom:20, fontSize:14 }}>Genera el XML completo con la estructura de Legitimacion con Base en Riesgos y aplica sus validaciones.</p>
 
       <div style={{ display:'flex', gap:12, marginBottom:24 }}>
-        <Btn onClick={generar} disabled={loading}>{loading ? 'Ejecutando...' : 'Ejecutar Escenario 3'}</Btn>
+        <Btn onClick={generar} disabled={loading}>{loading ? 'Generando...' : 'Generar XML'}</Btn>
         {result && <Btn variant="success" onClick={descargar}>⬇️ Descargar .xml</Btn>}
       </div>
 
@@ -1081,9 +1038,10 @@ const NAV = [
   { id:'cuentas',       label:'Cuentas',       icon:'🏦' },
   { id:'prestamos',     label:'Préstamos',     icon:'💰' },
   { id:'tarjetas',      label:'Tarjetas',      icon:'💳' },
-              { label:'Cuadro A',      val: result.resumen?.registros_cuadro_a, col: C.success  },
+  { id:'transacciones', label:'Transacciones', icon:'↔️'  },
   { id:'riesgo',        label:'Riesgo',        icon:'📊' },
-  { id:'escenarios',    label:'Escenarios',    icon:'🧪' },
+  { id:'escenario1',    label:'Carga mensual', icon:'CM' },
+  { id:'escenario2',    label:'Transacciones abril', icon:'TA' },
   { id:'xml',           label:'XML SICVECA',   icon:'🔧' },
 ];
 
@@ -1134,7 +1092,8 @@ export default function App() {
       case 'clientes': return <Clientes toast={showToast} setSection={setSection} setRiesgoId={setRiesgoId} />;
       case 'transacciones': return <Transacciones toast={showToast} />;
       case 'riesgo':   return <Riesgo   toast={showToast} clienteIdInicial={riesgoId} />;
-      case 'escenarios':    return <Escenarios    toast={showToast} />;
+      case 'escenario1':    return <Escenario toast={showToast} config={ESCENARIOS_CONFIG.escenario1} />;
+      case 'escenario2':    return <Escenario toast={showToast} config={ESCENARIOS_CONFIG.escenario2} />;
       case 'xml':           return <Xml           toast={showToast} />;
       case 'productos':     return <CrudSection endpoint="productos"  idField="id_producto"  icon="📦" title="Productos"  formFields={PRODUCTO_FIELDS} formInit={toInit(PRODUCTO_FIELDS)}
         cols={[ {key:'id_producto',label:'ID'},{key:'id_cliente',label:'Cliente'},{key:'tipo_producto',label:'Tipo'},{key:'moneda',label:'Moneda'},{key:'fecha_apertura',label:'Apertura',render:r=>fmtDate(r.fecha_apertura)},{key:'estado',label:'Estado',render:r=><Badge color={r.estado==='ACTIVO'?C.success:C.textMid} bg={r.estado==='ACTIVO'?C.successBg:C.surfaceAlt}>{r.estado}</Badge>},{key:'descripcion',label:'Descripción'} ]}

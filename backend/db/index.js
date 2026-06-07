@@ -5,12 +5,14 @@
 require('dotenv').config();
 const sql = require('mssql');
 
- const config = {
+const config = {
   server: process.env.DB_SERVER,
   database: process.env.DB_DATABASE,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   port: parseInt(process.env.DB_PORT || '1433'),
+  connectionTimeout: 30000,
+  requestTimeout: 30000,
 
   options: {
     encrypt: false,
@@ -28,9 +30,20 @@ const sql = require('mssql');
 let pool = null;
 
 const getPool = async () => {
-  if (pool) return pool;
-  pool = await sql.connect(config);
-  return pool;
+  if (pool?.connected) return pool;
+
+  try {
+    pool = await new sql.ConnectionPool(config).connect();
+    pool.on('error', (err) => {
+      console.error('SQL pool error:', err.message);
+      pool = null;
+    });
+    return pool;
+  } catch (err) {
+    pool = null;
+    await sql.close().catch(() => {});
+    throw err;
+  }
 };
 
 // Prueba al arrancar el servidor — muestra tablas disponibles
