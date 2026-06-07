@@ -3,6 +3,14 @@ const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
 const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
+const {
+  handleValidation,
+  idParam,
+  optionalIdBody,
+  optionalMoneyBody,
+  optionalNonEmptyBody,
+  requiredIdBody,
+} = require('./_validation');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -11,7 +19,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM dbo.vw_api_cuentas WHERE id_cuenta = @id;', [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id) }
@@ -21,7 +29,15 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', [
+  requiredIdBody('id_cliente'),
+  optionalIdBody('tipo_cuenta'),
+  optionalIdBody('id_producto'),
+  optionalNonEmptyBody('numero_cuenta', { max: 50 }),
+  optionalMoneyBody('saldo', { min: 0 }),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const tipo = parseInt(req.body.tipo_cuenta || req.body.id_producto || 1);
     const saldo = parseFloat(req.body.saldo || 0);
@@ -42,7 +58,15 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', [
+  idParam(),
+  optionalIdBody('tipo_cuenta'),
+  optionalIdBody('id_producto'),
+  optionalNonEmptyBody('numero_cuenta', { max: 50 }),
+  optionalMoneyBody('saldo', { min: 0 }),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const payload = {};
     if (req.body.tipo_cuenta !== undefined) payload.C_tipo_producto = parseInt(req.body.tipo_cuenta, 10);
@@ -63,7 +87,7 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     await deleteRecord('Cuenta', 'C_cuenta', req.params.id);
     res.json({ message: 'Cuenta eliminada' });

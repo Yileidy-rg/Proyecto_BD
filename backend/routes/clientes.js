@@ -6,6 +6,20 @@ const router = express.Router();
 const db = require('../db');
 const { sql } = db;
 const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
+const {
+  cedulaBody,
+  handleValidation,
+  idParam,
+  optionalBooleanBody,
+  optionalDateBody,
+  optionalIdBody,
+  optionalIntBody,
+  optionalMoneyBody,
+  optionalNonEmptyBody,
+  optionalIntQuery,
+  optionalNonEmptyQuery,
+  requiredNonEmptyBody,
+} = require('./_validation');
 
 const SELECT_CLIENTES = `
   SELECT *
@@ -19,7 +33,11 @@ const SELECT_BUSQUEDA_CLIENTES = `
 `;
 
 // GET /api/clientes/buscar/inteligente?termino=...
-router.get('/buscar/inteligente', async (req, res, next) => {
+router.get('/buscar/inteligente', [
+  optionalNonEmptyQuery('termino', { max: 120 }),
+  optionalIntQuery('limite', { min: 1, max: 20 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const terminoRaw = req.query.termino || '';
     const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 20);
@@ -147,7 +165,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET /api/clientes/:id
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     const result = await db.query(`${SELECT_CLIENTES} WHERE id_cliente = @id;`, [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
@@ -164,7 +182,50 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // POST /api/clientes
-router.post('/', async (req, res, next) => {
+const clienteCreateValidators = [
+  requiredNonEmptyBody('nombre', { max: 100 }),
+  requiredNonEmptyBody('primer_apellido', { max: 100 }),
+  optionalNonEmptyBody('segundo_apellido', { max: 100 }),
+  cedulaBody('cedula'),
+  optionalNonEmptyBody('email', { max: 150 }).optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('email debe ser valido'),
+  optionalNonEmptyBody('telefono', { max: 30 }),
+  optionalDateBody('fecha_nacimiento'),
+  optionalIdBody('tipo_cliente'),
+  optionalIdBody('provincia'),
+  optionalIdBody('canton'),
+  optionalIdBody('distrito'),
+  optionalNonEmptyBody('actividad_economica', { max: 50 }),
+  optionalIdBody('justificacion_ingreso'),
+  optionalMoneyBody('ingreso_mensual', { min: 0 }),
+  optionalBooleanBody('es_pep'),
+  optionalBooleanBody('es_sujeto_obligado'),
+  optionalBooleanBody('es_residente'),
+  handleValidation,
+];
+
+const clienteUpdateValidators = [
+  idParam(),
+  optionalNonEmptyBody('nombre', { max: 100 }),
+  optionalNonEmptyBody('primer_apellido', { max: 100 }),
+  optionalNonEmptyBody('segundo_apellido', { max: 100 }),
+  cedulaBody('cedula', { required: false }),
+  optionalNonEmptyBody('email', { max: 150 }).optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('email debe ser valido'),
+  optionalNonEmptyBody('telefono', { max: 30 }),
+  optionalDateBody('fecha_nacimiento'),
+  optionalIdBody('tipo_cliente'),
+  optionalIdBody('provincia'),
+  optionalIdBody('canton'),
+  optionalIdBody('distrito'),
+  optionalNonEmptyBody('actividad_economica', { max: 50 }),
+  optionalIdBody('justificacion_ingreso'),
+  optionalMoneyBody('ingreso_mensual', { min: 0 }),
+  optionalBooleanBody('es_pep'),
+  optionalBooleanBody('es_sujeto_obligado'),
+  optionalBooleanBody('es_residente'),
+  handleValidation,
+];
+
+router.post('/', clienteCreateValidators, async (req, res, next) => {
   try {
     const {
       nombre,
@@ -229,7 +290,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // PUT /api/clientes/:id
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', clienteUpdateValidators, async (req, res, next) => {
   try {
     const payload = { F_modificacion: new Date() };
     if (req.body.cedula !== undefined) payload.D_numero_identificacion = req.body.cedula || null;
@@ -270,7 +331,7 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // DELETE /api/clientes/:id
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     await deleteRecord('Cliente', 'C_cliente', req.params.id);
 

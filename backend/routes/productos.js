@@ -3,6 +3,18 @@ const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
 const { insertRecord } = require('./_spWrites');
+const {
+  handleValidation,
+  idParam,
+  optionalDateBody,
+  optionalIdBody,
+  optionalIntBody,
+  optionalIntQuery,
+  optionalMoneyBody,
+  optionalNonEmptyBody,
+  requiredIdBody,
+  body,
+} = require('./_validation');
 
 const SELECT_PRODUCTOS = `
   SELECT TOP (@limite) *
@@ -38,7 +50,12 @@ router.get('/tipos', async (req, res, next) => {
   }
 });
 
-router.get('/', async (req, res, next) => {
+router.get('/', [
+  optionalIntQuery('limite', { min: 1, max: 1000 }),
+  optionalIntQuery('cliente', { min: 1 }),
+  optionalIntQuery('id_cliente', { min: 1 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const limite = Math.min(Math.max(parseInt(req.query.limite || '200', 10), 1), 1000);
     const cliente = intOrNull(req.query.cliente || req.query.id_cliente);
@@ -52,7 +69,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/cliente/:idCliente', async (req, res, next) => {
+router.get('/cliente/:idCliente', [idParam('idCliente'), handleValidation], async (req, res, next) => {
   try {
     const result = await db.query(SELECT_PRODUCTOS, [
       { name: 'limite', type: sql.Int, value: 1000 },
@@ -64,7 +81,7 @@ router.get('/cliente/:idCliente', async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     const result = await db.query(`
       SELECT *
@@ -80,7 +97,27 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', [
+  requiredIdBody('id_cliente'),
+  requiredIdBody('tipo_producto'),
+  optionalIdBody('moneda'),
+  optionalDateBody('fecha_apertura'),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  body().custom((_, { req }) => {
+    const values = [req.body.monto, req.body.saldo, req.body.limite_credito]
+      .filter((value) => value !== undefined && value !== null && value !== '');
+    if (!values.length) throw new Error('monto, saldo o limite_credito es requerido');
+    if (!values.some((value) => Number(value) > 0)) throw new Error('monto, saldo o limite_credito debe ser mayor a cero');
+    return true;
+  }),
+  optionalMoneyBody('monto', { min: 0 }),
+  optionalMoneyBody('saldo', { min: 0 }),
+  optionalMoneyBody('limite_credito', { min: 0 }),
+  optionalIntBody('plazo_meses', { min: 1, max: 600 }),
+  optionalIntBody('plazo_dias', { min: 1, max: 36500 }),
+  optionalMoneyBody('tasa_interes', { min: 0 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const idCliente = intOrNull(req.body.id_cliente);
     const tipo = intOrNull(req.body.tipo_producto);

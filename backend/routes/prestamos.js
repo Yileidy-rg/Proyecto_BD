@@ -3,6 +3,17 @@ const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
 const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
+const {
+  handleValidation,
+  idParam,
+  optionalDateBody,
+  optionalIdBody,
+  optionalIntBody,
+  optionalMoneyBody,
+  optionalNonEmptyBody,
+  requiredIdBody,
+  requiredPositiveMoneyBody,
+} = require('./_validation');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -11,7 +22,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM dbo.vw_api_creditos WHERE id_prestamo = @id;', [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id) }
@@ -21,7 +32,18 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', [
+  requiredIdBody('id_cliente'),
+  requiredPositiveMoneyBody('monto'),
+  optionalIntBody('plazo_meses', { min: 1, max: 600 }),
+  optionalMoneyBody('tasa_interes', { min: 0 }),
+  optionalIdBody('tipo_prestamo'),
+  optionalIdBody('id_producto'),
+  optionalDateBody('fecha_desembolso'),
+  optionalNonEmptyBody('numero_operacion', { max: 80 }),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const monto = parseFloat(req.body.monto || 0);
     const plazo = parseInt(req.body.plazo_meses || 60);
@@ -53,7 +75,17 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', [
+  idParam(),
+  optionalIdBody('tipo_prestamo'),
+  optionalIdBody('id_producto'),
+  optionalMoneyBody('monto', { min: 0 }),
+  optionalIntBody('plazo_meses', { min: 1, max: 600 }),
+  optionalMoneyBody('tasa_interes', { min: 0 }),
+  optionalDateBody('fecha_desembolso'),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const payload = {};
     if (req.body.tipo_prestamo !== undefined) payload.C_tipo_producto = parseInt(req.body.tipo_prestamo, 10);
@@ -76,7 +108,7 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     await deleteRecord('Credito', 'C_credito', req.params.id);
     res.json({ message: 'Préstamo eliminado' });

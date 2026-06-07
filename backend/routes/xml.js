@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
+const {
+  handleValidation,
+  optionalIntQuery,
+  optionalNonEmptyQuery,
+  query,
+} = require('./_validation');
 
 function esc(v) {
   return String(v ?? '')
@@ -54,7 +60,19 @@ function leerSalidaXml(recordsets = []) {
   };
 }
 
-router.get('/generar', async (req, res, next) => {
+router.get('/generar', [
+  optionalIntQuery('anio', { min: 2000, max: 2100 }),
+  optionalIntQuery('trimestre', { min: 1, max: 4 }),
+  optionalNonEmptyQuery('cedula_entidad', { max: 15 }),
+  optionalIntQuery('tipo_carga', { min: 1, max: 9 }),
+  optionalIntQuery('moneda', { min: 1, max: 255 }),
+  query('datos_malos')
+    .optional({ nullable: true, checkFalsy: true })
+    .isBoolean()
+    .withMessage('datos_malos debe ser booleano')
+    .toBoolean(),
+  handleValidation,
+], async (req, res, next) => {
   try {
     try {
       const hoy = new Date();

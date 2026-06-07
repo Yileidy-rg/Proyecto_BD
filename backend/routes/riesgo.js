@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
+const {
+  body,
+  handleValidation,
+  idParam,
+  query,
+} = require('./_validation');
 
 // GET /api/riesgo — historial de calificaciones guardadas por el SP
 router.get('/', async (req, res, next) => {
@@ -19,7 +25,14 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET /api/riesgo/:idCliente — ejecuta el procedimiento almacenado real de la base
-router.get('/:idCliente', async (req, res, next) => {
+router.get('/:idCliente', [
+  idParam('idCliente'),
+  query('periodo')
+    .optional({ nullable: true, checkFalsy: true })
+    .matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .withMessage('periodo debe tener formato YYYY-MM'),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const idCliente = parseInt(req.params.idCliente, 10);
     if (!Number.isInteger(idCliente)) {
@@ -57,7 +70,13 @@ router.get('/:idCliente', async (req, res, next) => {
 });
 
 // POST /api/riesgo/recalcular-todos — ejecuta el SP masivo
-router.post('/recalcular-todos', async (req, res, next) => {
+router.post('/recalcular-todos', [
+  body('periodo')
+    .optional({ nullable: true, checkFalsy: true })
+    .matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .withMessage('periodo debe tener formato YYYY-MM'),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const periodo = req.body?.periodo || new Date().toISOString().slice(0, 7);
 

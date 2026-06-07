@@ -3,6 +3,13 @@ const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
 const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
+const {
+  handleValidation,
+  idParam,
+  optionalNonEmptyBody,
+  requiredIdBody,
+  requiredPositiveMoneyBody,
+} = require('./_validation');
 
 const SELECT_TX = `
   SELECT *
@@ -16,7 +23,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/producto/:idProducto', async (req, res, next) => {
+router.get('/producto/:idProducto', [idParam('idProducto'), handleValidation], async (req, res, next) => {
   try {
     const id = parseInt(req.params.idProducto);
     const result = await db.query(`
@@ -28,7 +35,7 @@ router.get('/producto/:idProducto', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     const result = await db.query(`${SELECT_TX} WHERE id_transaccion = @id;`, [
       { name: 'id', type: sql.BigInt, value: parseInt(req.params.id) }
@@ -38,7 +45,13 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', [
+  requiredIdBody('id_producto'),
+  requiredPositiveMoneyBody('monto'),
+  optionalNonEmptyBody('tipo_transaccion', { max: 80 }),
+  optionalNonEmptyBody('descripcion', { max: 255 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const idProducto = parseInt(req.body.id_producto);
     const monto = parseFloat(req.body.monto);
@@ -106,7 +119,12 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', [
+  idParam(),
+  requiredPositiveMoneyBody('monto').optional({ nullable: true }),
+  optionalNonEmptyBody('descripcion', { max: 255 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const payload = {};
     if (req.body.monto !== undefined) payload.M_monto = parseFloat(req.body.monto);
@@ -121,7 +139,7 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     await deleteRecord('Transaccion', 'N_id_transaccion', req.params.id);
     res.json({ message: 'Transacci\u00f3n eliminada' });

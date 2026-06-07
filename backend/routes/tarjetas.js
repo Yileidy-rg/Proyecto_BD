@@ -3,6 +3,14 @@ const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
 const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
+const {
+  handleValidation,
+  idParam,
+  optionalMoneyBody,
+  optionalNonEmptyBody,
+  requiredIdBody,
+  requiredPositiveMoneyBody,
+} = require('./_validation');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -11,7 +19,7 @@ router.get('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas WHERE id_tarjeta = @id;', [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id) }
@@ -21,7 +29,14 @@ router.get('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', [
+  requiredIdBody('id_cliente'),
+  optionalNonEmptyBody('numero_tarjeta', { max: 30 }),
+  requiredPositiveMoneyBody('limite_credito'),
+  optionalMoneyBody('saldo_actual', { min: 0 }),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const limite = parseFloat(req.body.limite_credito || 500000);
     const saldo = parseFloat(req.body.saldo_actual || 0);
@@ -49,7 +64,14 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', [
+  idParam(),
+  optionalNonEmptyBody('numero_tarjeta', { max: 30 }),
+  optionalMoneyBody('limite_credito', { min: 0 }),
+  optionalMoneyBody('saldo_actual', { min: 0 }),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const payload = {};
     if (req.body.numero_tarjeta !== undefined) payload.D_num_tarjeta = req.body.numero_tarjeta || null;
@@ -75,7 +97,7 @@ router.put('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
     await deleteRecord('TarjetaCredito', 'C_tarjeta', req.params.id);
     res.json({ message: 'Tarjeta eliminada' });
