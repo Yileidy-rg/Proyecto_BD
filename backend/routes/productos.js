@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
+const { insertRecord } = require('./_spWrites');
 
 const SELECT_PRODUCTOS = `
   SELECT TOP (@limite) *
@@ -281,119 +282,86 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'id_cliente y tipo_producto son requeridos' });
     }
 
-    const params = [
-      { name: 'cliente', type: sql.Int, value: idCliente },
-      { name: 'tipo', type: sql.TinyInt, value: tipo },
-      { name: 'moneda', type: sql.TinyInt, value: moneda },
-      { name: 'fecha', type: sql.Date, value: fecha },
-      { name: 'estado', type: sql.NVarChar(20), value: estado },
-      { name: 'monto', type: sql.Decimal(18, 2), value: monto },
-      { name: 'plazoMeses', type: sql.Int, value: plazoMeses },
-      { name: 'plazoDias', type: sql.Int, value: plazoDias },
-      { name: 'tasa', type: sql.Decimal(8, 4), value: tasa },
-    ];
+    const addMonths = (base, months) => {
+      const d = new Date(base);
+      d.setMonth(d.getMonth() + months);
+      return d.toISOString().slice(0, 10);
+    };
+    const addDays = (base, days) => {
+      const d = new Date(base);
+      d.setDate(d.getDate() + days);
+      return d.toISOString().slice(0, 10);
+    };
 
-    let insertSql = '';
+    let table;
+    let idColumn;
+    let payload;
 
     if ([1, 3, 4].includes(tipo)) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_cuenta) FROM dbo.Cuenta WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.Cuenta (C_cuenta, C_cliente, C_tipo_producto, D_numero_cuenta, C_moneda, M_saldo_disponible, M_saldo_contable, F_apertura, D_estado)
-        VALUES (@id, @cliente, @tipo, CONCAT('CTA', FORMAT(@id, '0000000000')), @moneda, @monto, @monto, @fecha, @estado);
-      `;
+      table = 'Cuenta';
+      idColumn = 'C_cuenta';
+      payload = { C_cliente: idCliente, C_tipo_producto: tipo, D_numero_cuenta: `CTA${Date.now().toString().slice(-10)}`, C_moneda: moneda, M_saldo_disponible: monto, M_saldo_contable: monto, F_apertura: fecha, D_estado: estado };
     } else if (tipo === 2) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_deposito) FROM dbo.DepositoPlazo WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.DepositoPlazo (C_deposito, C_cliente, D_numero_cert, C_moneda, M_monto_principal, M_tasa_interes, Q_plazo_dias, F_emision, F_vencimiento, D_estado)
-        VALUES (@id, @cliente, CONCAT('DP', FORMAT(@id, '000000')), @moneda, @monto, @tasa, @plazoDias, @fecha, DATEADD(DAY, @plazoDias, @fecha), @estado);
-      `;
+      table = 'DepositoPlazo';
+      idColumn = 'C_deposito';
+      payload = { C_cliente: idCliente, D_numero_cert: `DP${Date.now().toString().slice(-6)}`, C_moneda: moneda, M_monto_principal: monto, M_tasa_interes: tasa, Q_plazo_dias: plazoDias, F_emision: fecha, F_vencimiento: addDays(fecha, plazoDias), D_estado: estado };
     } else if (tipo === 5) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_dep_judicial) FROM dbo.DepositoJudicial WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.DepositoJudicial (C_dep_judicial, C_cliente, D_num_expediente, D_tribunal_origen, C_moneda, M_monto, F_deposito, D_estado)
-        VALUES (@id, @cliente, CONCAT('EXP', FORMAT(@id, '000000')), 'Tribunal Central', @moneda, @monto, @fecha, @estado);
-      `;
+      table = 'DepositoJudicial';
+      idColumn = 'C_dep_judicial';
+      payload = { C_cliente: idCliente, D_num_expediente: `EXP${Date.now().toString().slice(-6)}`, D_tribunal_origen: 'Tribunal Central', C_moneda: moneda, M_monto: monto, F_deposito: fecha, D_estado: estado };
     } else if ([6, 7, 9, 10].includes(tipo)) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_credito) FROM dbo.Credito WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.Credito (C_credito, C_cliente, C_tipo_producto, D_num_operacion, C_moneda,
-          M_monto_aprobado, M_saldo_principal, M_tasa_interes, Q_plazo_meses, F_formalizacion, F_vencimiento, M_cuota_mensual, Q_dias_mora, D_estado)
-        VALUES (@id, @cliente, @tipo, CONCAT('CRD', FORMAT(@id, '000000')), @moneda,
-          @monto, @monto, @tasa, @plazoMeses, @fecha, DATEADD(MONTH, @plazoMeses, @fecha), @monto / NULLIF(@plazoMeses, 0), 0, @estado);
-      `;
+      table = 'Credito';
+      idColumn = 'C_credito';
+      payload = { C_cliente: idCliente, C_tipo_producto: tipo, D_num_operacion: `CRD${Date.now().toString().slice(-6)}`, C_moneda: moneda, M_monto_aprobado: monto, M_saldo_principal: monto, M_tasa_interes: tasa, Q_plazo_meses: plazoMeses, F_formalizacion: fecha, F_vencimiento: addMonths(fecha, plazoMeses), M_cuota_mensual: monto / plazoMeses, Q_dias_mora: 0, D_estado: estado };
     } else if (tipo === 8) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_tarjeta) FROM dbo.TarjetaCredito WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.TarjetaCredito (C_tarjeta, C_cliente, D_num_tarjeta, C_moneda, M_limite_credito,
-          M_saldo_utilizado, M_saldo_disponible, M_tasa_interes, F_emision, F_vencimiento, N_dia_corte, N_dia_pago, D_estado)
-        VALUES (@id, @cliente, CONCAT('411111111111', FORMAT(@id, '0000')), @moneda, @monto,
-          0, @monto, 0.3200, @fecha, DATEADD(YEAR, 4, @fecha), 15, 30, @estado);
-      `;
+      table = 'TarjetaCredito';
+      idColumn = 'C_tarjeta';
+      payload = { C_cliente: idCliente, D_num_tarjeta: `411111111111${Date.now().toString().slice(-4)}`, C_moneda: moneda, M_limite_credito: monto, M_saldo_utilizado: 0, M_saldo_disponible: monto, M_tasa_interes: 0.32, F_emision: fecha, F_vencimiento: addMonths(fecha, 48), N_dia_corte: 15, N_dia_pago: 30, D_estado: estado };
     } else if (tipo === 11) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_leasing) FROM dbo.Leasing WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.Leasing (C_leasing, C_cliente, D_num_contrato, D_desc_bien, C_moneda, M_valor_bien,
-          M_saldo_pendiente, M_cuota_mensual, M_tasa_interes, Q_plazo_meses, F_inicio, F_fin, M_valor_residual, D_estado)
-        VALUES (@id, @cliente, CONCAT('LEA', FORMAT(@id, '000000')), 'Bien financiado', @moneda, @monto,
-          @monto, @monto / NULLIF(@plazoMeses, 0), @tasa, @plazoMeses, @fecha, DATEADD(MONTH, @plazoMeses, @fecha), @monto * 0.10, @estado);
-      `;
+      table = 'Leasing';
+      idColumn = 'C_leasing';
+      payload = { C_cliente: idCliente, D_num_contrato: `LEA${Date.now().toString().slice(-6)}`, D_desc_bien: 'Bien financiado', C_moneda: moneda, M_valor_bien: monto, M_saldo_pendiente: monto, M_cuota_mensual: monto / plazoMeses, M_tasa_interes: tasa, Q_plazo_meses: plazoMeses, F_inicio: fecha, F_fin: addMonths(fecha, plazoMeses), M_valor_residual: monto * 0.10, D_estado: estado };
     } else if (tipo === 12) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_aval) FROM dbo.AvalGarantia WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.AvalGarantia (C_aval, C_cliente, D_num_documento, T_tipo_garantia, D_beneficiario, C_moneda, M_monto_garantizado, F_emision, F_vencimiento, D_estado)
-        VALUES (@id, @cliente, CONCAT('AVL', FORMAT(@id, '000000')), 'Garantia bancaria', 'Beneficiario general', @moneda, @monto, @fecha, DATEADD(MONTH, @plazoMeses, @fecha), @estado);
-      `;
+      table = 'AvalGarantia';
+      idColumn = 'C_aval';
+      payload = { C_cliente: idCliente, D_num_documento: `AVL${Date.now().toString().slice(-6)}`, T_tipo_garantia: 'Garantia bancaria', D_beneficiario: 'Beneficiario general', C_moneda: moneda, M_monto_garantizado: monto, F_emision: fecha, F_vencimiento: addMonths(fecha, plazoMeses), D_estado: estado };
     } else if ([13, 14].includes(tipo)) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_transferencia) FROM dbo.Transferencia WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.Transferencia (C_transferencia, C_cliente, C_tipo_producto, D_num_referencia, C_moneda, M_monto, T_tipo_canal, D_banco_origen, D_banco_destino, F_transaccion, M_comision_cobrada, D_estado)
-        VALUES (@id, @cliente, @tipo, CONCAT('TRF', FORMAT(@id, '000000')), @moneda, @monto, 'Web', 'Banco origen', 'Banco destino', @fecha, 0, @estado);
-      `;
+      table = 'Transferencia';
+      idColumn = 'C_transferencia';
+      payload = { C_cliente: idCliente, C_tipo_producto: tipo, D_num_referencia: `TRF${Date.now().toString().slice(-6)}`, C_moneda: moneda, M_monto: monto, T_tipo_canal: 'Web', D_banco_origen: 'Banco origen', D_banco_destino: 'Banco destino', F_transaccion: new Date(fecha), M_comision_cobrada: 0, D_estado: estado };
     } else if (tipo === 15) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_operacion) FROM dbo.OperacionDivisas WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.OperacionDivisas (C_operacion, C_cliente, T_tipo_operacion, C_moneda_origen, M_monto_origen, C_moneda_destino, M_monto_destino, M_tipo_cambio, F_operacion, M_comision_cobrada, M_ganancia_entidad)
-        VALUES (@id, @cliente, 'Compra', @moneda, @monto, 2, @monto / 520.00, 520.00, @fecha, 0, 0);
-      `;
+      table = 'OperacionDivisas';
+      idColumn = 'C_operacion';
+      payload = { C_cliente: idCliente, T_tipo_operacion: 'Compra', C_moneda_origen: moneda, M_monto_origen: monto, C_moneda_destino: 2, M_monto_destino: monto / 520, M_tipo_cambio: 520, F_operacion: new Date(fecha), M_comision_cobrada: 0, M_ganancia_entidad: 0 };
     } else if (tipo === 16) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_fideicomiso) FROM dbo.Fideicomiso WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.Fideicomiso (C_fideicomiso, C_cliente, D_num_contrato, D_objeto, C_moneda, M_valor_aportado, M_valor_actual, D_beneficiario, F_constitucion, D_estado)
-        VALUES (@id, @cliente, CONCAT('FID', FORMAT(@id, '000000')), 'Administracion patrimonial', @moneda, @monto, @monto, 'Beneficiario general', @fecha, @estado);
-      `;
+      table = 'Fideicomiso';
+      idColumn = 'C_fideicomiso';
+      payload = { C_cliente: idCliente, D_num_contrato: `FID${Date.now().toString().slice(-6)}`, D_objeto: 'Administracion patrimonial', C_moneda: moneda, M_valor_aportado: monto, M_valor_actual: monto, D_beneficiario: 'Beneficiario general', F_constitucion: fecha, D_estado: estado };
     } else if (tipo === 17) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_uso_atm) FROM dbo.UsoATM WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        DECLARE @cuenta INT = (SELECT TOP 1 C_cuenta FROM dbo.Cuenta WHERE C_cliente = @cliente ORDER BY C_cuenta);
-        IF @cuenta IS NULL SELECT TOP 1 @cuenta = C_cuenta FROM dbo.Cuenta ORDER BY C_cuenta;
-        IF @cuenta IS NULL THROW 51000, 'Se requiere una cuenta existente para registrar uso ATM.', 1;
-        INSERT INTO dbo.UsoATM (C_uso_atm, C_cliente, C_cuenta, D_codigo_atm, D_ubicacion_atm, C_moneda, M_monto, T_tipo_operacion, M_comision_cobrada, M_ganancia_entidad, F_operacion)
-        VALUES (@id, @cliente, @cuenta, CONCAT('ATM', FORMAT(@id, '0000')), 'Sucursal central', @moneda, @monto, 'Retiro', 0, 0, @fecha);
-      `;
+      const cuentaRes = await db.query('SELECT TOP 1 C_cuenta FROM dbo.Cuenta WHERE C_cliente = @cliente ORDER BY C_cuenta;', [
+        { name: 'cliente', type: sql.Int, value: idCliente },
+      ]);
+      const cuenta = cuentaRes.recordset[0]?.C_cuenta;
+      if (!cuenta) return res.status(400).json({ error: 'Se requiere una cuenta existente para registrar uso ATM.' });
+      table = 'UsoATM';
+      idColumn = 'C_uso_atm';
+      payload = { C_cliente: idCliente, C_cuenta: cuenta, D_codigo_atm: `ATM${Date.now().toString().slice(-4)}`, D_ubicacion_atm: 'Sucursal central', C_moneda: moneda, M_monto: monto, T_tipo_operacion: 'Retiro', M_comision_cobrada: 0, M_ganancia_entidad: 0, F_operacion: new Date(fecha) };
     } else if (tipo === 18) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_operacion_bl) FROM dbo.BancaEnLinea WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.BancaEnLinea (C_operacion_bl, C_cliente, T_canal, D_tipo_operacion, C_moneda, M_monto, D_descripcion, F_operacion, D_ip_origen, D_estado)
-        VALUES (@id, @cliente, 'App movil', 'Pago servicio', @moneda, @monto, 'Operacion de banca en linea', @fecha, '127.0.0.1', @estado);
-      `;
+      table = 'BancaEnLinea';
+      idColumn = 'C_operacion_bl';
+      payload = { C_cliente: idCliente, T_canal: 'App movil', D_tipo_operacion: 'Pago servicio', C_moneda: moneda, M_monto: monto, D_descripcion: 'Operacion de banca en linea', F_operacion: new Date(fecha), D_ip_origen: '127.0.0.1', D_estado: estado };
     } else if (tipo === 19) {
-      insertSql = `
-        DECLARE @id INT = ISNULL((SELECT MAX(C_caja) FROM dbo.CajaSeguridad WITH (UPDLOCK, HOLDLOCK)), 0) + 1;
-        INSERT INTO dbo.CajaSeguridad (C_caja, C_cliente, D_numero_caja, D_sucursal, D_dimensiones, M_canon_mensual, F_inicio, D_estado)
-        VALUES (@id, @cliente, CONCAT('CAJ', FORMAT(@id, '0000')), 'Sucursal central', '30x30x50', @monto, @fecha, @estado);
-      `;
+      table = 'CajaSeguridad';
+      idColumn = 'C_caja';
+      payload = { C_cliente: idCliente, D_numero_caja: `CAJ${Date.now().toString().slice(-4)}`, D_sucursal: 'Sucursal central', D_dimensiones: '30x30x50', M_canon_mensual: monto, F_inicio: fecha, D_estado: estado };
     } else {
       return res.status(400).json({ error: `Tipo de producto no soportado: ${tipo}` });
     }
 
-    const result = await db.query(`
-      BEGIN TRAN;
-      ${insertSql}
-      COMMIT;
-      ${SELECT_PRODUCTOS}
-    `, [
-      ...params,
+    await insertRecord(table, idColumn, payload);
+    const result = await db.query(SELECT_PRODUCTOS, [
       { name: 'limite', type: sql.Int, value: 1000 },
+      { name: 'cliente', type: sql.Int, value: null },
     ]);
 
     const creado = result.recordset

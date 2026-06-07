@@ -13,6 +13,16 @@ const transaccionRoutes = require('./routes/transacciones');
 const riesgoRoutes      = require('./routes/riesgo');
 const escenarioRoutes   = require('./routes/escenarios');
 const xmlRoutes         = require('./routes/xml');
+const depositoPlazoRoutes      = require('./routes/depositosPlazo');
+const depositoJudicialRoutes   = require('./routes/depositosJudiciales');
+const leasingRoutes            = require('./routes/leasing');
+const avalRoutes               = require('./routes/avales');
+const transferenciaRoutes      = require('./routes/transferencias');
+const divisaRoutes             = require('./routes/divisas');
+const fideicomisoRoutes        = require('./routes/fideicomisos');
+const atmRoutes                = require('./routes/atm');
+const bancaEnLineaRoutes       = require('./routes/bancaEnLinea');
+const cajaSeguridadRoutes      = require('./routes/cajasSeguridad');
 
 const app = express();
 
@@ -30,6 +40,16 @@ app.use('/api/transacciones', transaccionRoutes);
 app.use('/api/riesgo',        riesgoRoutes);
 app.use('/api/escenarios',    escenarioRoutes);
 app.use('/api/xml',           xmlRoutes);
+app.use('/api/depositos-plazo',      depositoPlazoRoutes);
+app.use('/api/depositos-judiciales', depositoJudicialRoutes);
+app.use('/api/leasing',              leasingRoutes);
+app.use('/api/avales',               avalRoutes);
+app.use('/api/transferencias',       transferenciaRoutes);
+app.use('/api/divisas',              divisaRoutes);
+app.use('/api/fideicomisos',         fideicomisoRoutes);
+app.use('/api/atm',                  atmRoutes);
+app.use('/api/banca-en-linea',       bancaEnLineaRoutes);
+app.use('/api/cajas-seguridad',      cajaSeguridadRoutes);
 
 // ── Debug: listar tablas y columnas reales ────────────────────────────────────
 app.get('/api/debug/tablas', async (req, res) => {

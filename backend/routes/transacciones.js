@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
+const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
 
 const SELECT_TX = `
   SELECT
@@ -41,7 +42,7 @@ router.get('/:id', async (req, res, next) => {
     const result = await db.query(`${SELECT_TX} WHERE t.N_id_transaccion = @id;`, [
       { name: 'id', type: sql.BigInt, value: parseInt(req.params.id) }
     ]);
-    if (!result.recordset.length) return res.status(404).json({ error: 'Transacción no encontrada' });
+    if (!result.recordset.length) return res.status(404).json({ error: 'Transacci\u00f3n no encontrada' });
     res.json({ data: result.recordset[0] });
   } catch (err) { next(err); }
 });
@@ -52,19 +53,12 @@ router.post('/', async (req, res, next) => {
     const monto = parseFloat(req.body.monto);
     if (!idProducto || !monto) return res.status(400).json({ error: 'id_producto y monto son requeridos' });
 
-    const result = await db.query(`
-      DECLARE @id BIGINT = ISNULL((SELECT MAX(N_id_transaccion) FROM dbo.Transaccion), 0) + 1;
+    const meta = await db.query(`
       DECLARE @cliente INT = NULL;
       DECLARE @tipoProd TINYINT = NULL;
       DECLARE @cuenta INT = NULL;
       DECLARE @credito INT = NULL;
       DECLARE @tarjeta INT = NULL;
-      DECLARE @tipoTx SMALLINT = ISNULL((
-        SELECT TOP 1 N_tipo_transaccion
-        FROM dbo.cat_TipoTransaccion
-        WHERE UPPER(REPLACE(D_descripcion, ' ', '_')) = UPPER(@tipoTexto)
-           OR UPPER(D_descripcion) LIKE '%' + UPPER(REPLACE(@tipoTexto, '_', ' ')) + '%'
-      ), 1);
 
       IF EXISTS (SELECT 1 FROM dbo.Cuenta WHERE C_cuenta = @producto)
       BEGIN
@@ -84,46 +78,62 @@ router.post('/', async (req, res, next) => {
         SET @tipoProd = 1;
       END
 
-      INSERT INTO dbo.Transaccion (N_id_transaccion, C_cliente, C_tipo_transaccion, C_tipo_producto,
-        N_cuenta, N_credito, N_tarjeta, M_monto, D_descripcion, F_transaccion)
-      VALUES (@id, @cliente, @tipoTx, @tipoProd, @cuenta, @credito, @tarjeta, @monto, @descripcion, GETDATE());
-
-      ${SELECT_TX}
-      WHERE t.N_id_transaccion = @id;
+      SELECT
+        @cliente AS cliente,
+        @tipoProd AS tipo_producto,
+        @cuenta AS cuenta,
+        @credito AS credito,
+        @tarjeta AS tarjeta,
+        ISNULL((
+          SELECT TOP 1 N_tipo_transaccion
+          FROM dbo.cat_TipoTransaccion
+          WHERE UPPER(REPLACE(D_descripcion, ' ', '_')) = UPPER(@tipoTexto)
+             OR UPPER(D_descripcion) LIKE '%' + UPPER(REPLACE(@tipoTexto, '_', ' ')) + '%'
+        ), 1) AS tipo_transaccion;
     `, [
       { name: 'producto', type: sql.Int, value: idProducto },
-      { name: 'tipoTexto', type: sql.NVarChar(80), value: req.body.tipo_transaccion || 'Depósito' },
-      { name: 'monto', type: sql.Decimal(18, 2), value: monto },
-      { name: 'descripcion', type: sql.NVarChar(200), value: req.body.descripcion || null }
+      { name: 'tipoTexto', type: sql.NVarChar(80), value: req.body.tipo_transaccion || 'Deposito' },
     ]);
-    res.status(201).json({ data: result.recordset[0], message: 'Transacción registrada' });
+
+    const row = meta.recordset[0] || {};
+    const id = await insertRecord('Transaccion', 'N_id_transaccion', {
+      C_cliente: row.cliente,
+      C_tipo_transaccion: row.tipo_transaccion,
+      C_tipo_producto: row.tipo_producto,
+      N_cuenta: row.cuenta,
+      N_credito: row.credito,
+      N_tarjeta: row.tarjeta,
+      M_monto: monto,
+      D_descripcion: req.body.descripcion || null,
+      F_transaccion: new Date(),
+    });
+
+    const result = await db.query(`${SELECT_TX} WHERE t.N_id_transaccion = @id;`, [
+      { name: 'id', type: sql.BigInt, value: id },
+    ]);
+    res.status(201).json({ data: result.recordset[0], message: 'Transacci\u00f3n registrada' });
   } catch (err) { next(err); }
 });
 
 router.put('/:id', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      UPDATE dbo.Transaccion
-      SET M_monto = COALESCE(@monto, M_monto),
-          D_descripcion = COALESCE(@descripcion, D_descripcion)
-      WHERE N_id_transaccion = @id;
-      ${SELECT_TX} WHERE t.N_id_transaccion = @id;
-    `, [
-      { name: 'id', type: sql.BigInt, value: parseInt(req.params.id) },
-      { name: 'monto', type: sql.Decimal(18, 2), value: req.body.monto ? parseFloat(req.body.monto) : null },
-      { name: 'descripcion', type: sql.NVarChar(200), value: req.body.descripcion || null }
+    const payload = {};
+    if (req.body.monto !== undefined) payload.M_monto = parseFloat(req.body.monto);
+    if (req.body.descripcion !== undefined) payload.D_descripcion = req.body.descripcion || null;
+
+    await updateRecord('Transaccion', 'N_id_transaccion', req.params.id, payload);
+    const result = await db.query(`${SELECT_TX} WHERE t.N_id_transaccion = @id;`, [
+      { name: 'id', type: sql.BigInt, value: parseInt(req.params.id, 10) },
     ]);
-    if (!result.recordset.length) return res.status(404).json({ error: 'Transacción no encontrada' });
-    res.json({ data: result.recordset[0], message: 'Transacción actualizada' });
+    if (!result.recordset.length) return res.status(404).json({ error: 'Transacci\u00f3n no encontrada' });
+    res.json({ data: result.recordset[0], message: 'Transacci\u00f3n actualizada' });
   } catch (err) { next(err); }
 });
 
 router.delete('/:id', async (req, res, next) => {
   try {
-    await db.query(`DELETE FROM dbo.Transaccion WHERE N_id_transaccion = @id;`, [
-      { name: 'id', type: sql.BigInt, value: parseInt(req.params.id) }
-    ]);
-    res.json({ message: 'Transacción eliminada' });
+    await deleteRecord('Transaccion', 'N_id_transaccion', req.params.id);
+    res.json({ message: 'Transacci\u00f3n eliminada' });
   } catch (err) { next(err); }
 });
 

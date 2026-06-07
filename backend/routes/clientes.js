@@ -5,6 +5,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { sql } = db;
+const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
 
 const SELECT_CLIENTES = `
   SELECT
@@ -251,93 +252,31 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const result = await db.query(`
-      DECLARE @id INT = ISNULL((SELECT MAX(C_cliente) FROM dbo.Cliente), 0) + 1;
+    const id = await insertRecord('Cliente', 'C_cliente', {
+      C_tipo_identificacion: 1,
+      D_numero_identificacion: cedula,
+      C_tipo_persona: parseInt(tipo_cliente, 10) || 1,
+      D_nombre_1: nombre,
+      D_apellido_1: primer_apellido,
+      D_apellido_2: segundo_apellido || null,
+      D_telefono: telefono || null,
+      D_correo_electronico: email || null,
+      F_nacimiento_const: fecha_nacimiento || null,
+      C_provincia: provincia ? parseInt(provincia, 10) : null,
+      C_canton: canton ? parseInt(canton, 10) : null,
+      C_distrito: distrito ? parseInt(distrito, 10) : null,
+      D_cod_actividad: actividad_economica || null,
+      C_justificacion_ingreso: justificacion_ingreso ? parseInt(justificacion_ingreso, 10) : null,
+      M_ingreso_mensual: Number(ingreso_mensual || 0),
+      B_es_pep: Boolean(es_pep),
+      B_es_sujeto_obligado: Boolean(es_sujeto_obligado),
+      B_es_residente: Boolean(es_residente),
+      F_vinculacion: new Date(),
+      D_estado_cliente: 'Activo',
+    });
 
-      INSERT INTO dbo.Cliente (
-        C_cliente,
-        C_tipo_identificacion,
-        D_numero_identificacion,
-        C_tipo_persona,
-        D_nombre_1,
-        D_apellido_1,
-        D_apellido_2,
-        D_telefono,
-        D_correo_electronico,
-        F_nacimiento_const,
-        C_provincia,
-        C_canton,
-        C_distrito,
-        D_cod_actividad,
-        C_justificacion_ingreso,
-        M_ingreso_mensual,
-        B_es_pep,
-        B_es_sujeto_obligado,
-        B_es_residente,
-        F_vinculacion,
-        D_estado_cliente
-      )
-      OUTPUT
-        INSERTED.C_cliente AS id_cliente,
-        INSERTED.D_numero_identificacion AS cedula,
-        INSERTED.C_tipo_persona AS tipo_cliente,
-        INSERTED.D_nombre_1 AS nombre,
-        INSERTED.D_apellido_1 AS primer_apellido,
-        INSERTED.D_apellido_2 AS segundo_apellido,
-        INSERTED.D_correo_electronico AS email,
-        INSERTED.D_telefono AS telefono,
-        INSERTED.F_nacimiento_const AS fecha_nacimiento,
-        INSERTED.C_provincia AS provincia,
-        INSERTED.C_canton AS canton,
-        INSERTED.C_distrito AS distrito,
-        INSERTED.D_cod_actividad AS actividad_economica,
-        INSERTED.C_justificacion_ingreso AS justificacion_ingreso,
-        INSERTED.M_ingreso_mensual AS ingreso_mensual,
-        INSERTED.B_es_pep AS es_pep,
-        INSERTED.B_es_sujeto_obligado AS es_sujeto_obligado,
-        INSERTED.B_es_residente AS es_residente,
-        INSERTED.D_estado_cliente AS estado
-      VALUES (
-        @id,
-        1,
-        @cedula,
-        @tipo_cliente,
-        @nombre,
-        @primer_apellido,
-        @segundo_apellido,
-        @telefono,
-        @email,
-        @fecha_nacimiento,
-        @provincia,
-        @canton,
-        @distrito,
-        @actividad_economica,
-        @justificacion_ingreso,
-        @ingreso_mensual,
-        @es_pep,
-        @es_sujeto_obligado,
-        @es_residente,
-        GETDATE(),
-        'Activo'
-      );
-    `, [
-      { name: 'cedula', type: sql.NVarChar(50), value: cedula },
-      { name: 'tipo_cliente', type: sql.TinyInt, value: parseInt(tipo_cliente) || 1 },
-      { name: 'nombre', type: sql.NVarChar(60), value: nombre },
-      { name: 'primer_apellido', type: sql.NVarChar(60), value: primer_apellido },
-      { name: 'segundo_apellido', type: sql.NVarChar(60), value: segundo_apellido || null },
-      { name: 'telefono', type: sql.NVarChar(20), value: telefono || null },
-      { name: 'email', type: sql.NVarChar(120), value: email || null },
-      { name: 'fecha_nacimiento', type: sql.Date, value: fecha_nacimiento || null },
-      { name: 'provincia', type: sql.TinyInt, value: provincia ? parseInt(provincia) : null },
-      { name: 'canton', type: sql.SmallInt, value: canton ? parseInt(canton) : null },
-      { name: 'distrito', type: sql.Int, value: distrito ? parseInt(distrito) : null },
-      { name: 'actividad_economica', type: sql.NVarChar(20), value: actividad_economica || null },
-      { name: 'justificacion_ingreso', type: sql.TinyInt, value: justificacion_ingreso ? parseInt(justificacion_ingreso) : null },
-      { name: 'ingreso_mensual', type: sql.Decimal(15, 2), value: Number(ingreso_mensual || 0) },
-      { name: 'es_pep', type: sql.Bit, value: Boolean(es_pep) },
-      { name: 'es_sujeto_obligado', type: sql.Bit, value: Boolean(es_sujeto_obligado) },
-      { name: 'es_residente', type: sql.Bit, value: Boolean(es_residente) },
+    const result = await db.query(`${SELECT_CLIENTES} WHERE C_cliente = @id;`, [
+      { name: 'id', type: sql.Int, value: id },
     ]);
 
     res.status(201).json({
@@ -352,86 +291,29 @@ router.post('/', async (req, res, next) => {
 // PUT /api/clientes/:id
 router.put('/:id', async (req, res, next) => {
   try {
-    const {
-      nombre,
-      primer_apellido,
-      segundo_apellido = null,
-      cedula,
-      email = null,
-      telefono = null,
-      fecha_nacimiento = null,
-      tipo_cliente = 1,
-      provincia = null,
-      canton = null,
-      distrito = null,
-      actividad_economica = null,
-      justificacion_ingreso = null,
-      ingreso_mensual = 0,
-      es_pep = false,
-      es_sujeto_obligado = false,
-      es_residente = true,
-    } = req.body;
+    const payload = { F_modificacion: new Date() };
+    if (req.body.cedula !== undefined) payload.D_numero_identificacion = req.body.cedula || null;
+    if (req.body.tipo_cliente !== undefined) payload.C_tipo_persona = parseInt(req.body.tipo_cliente, 10) || 1;
+    if (req.body.nombre !== undefined) payload.D_nombre_1 = req.body.nombre || null;
+    if (req.body.primer_apellido !== undefined) payload.D_apellido_1 = req.body.primer_apellido || null;
+    if (req.body.segundo_apellido !== undefined) payload.D_apellido_2 = req.body.segundo_apellido || null;
+    if (req.body.telefono !== undefined) payload.D_telefono = req.body.telefono || null;
+    if (req.body.email !== undefined) payload.D_correo_electronico = req.body.email || null;
+    if (req.body.fecha_nacimiento !== undefined) payload.F_nacimiento_const = req.body.fecha_nacimiento || null;
+    if (req.body.provincia !== undefined) payload.C_provincia = req.body.provincia ? parseInt(req.body.provincia, 10) : null;
+    if (req.body.canton !== undefined) payload.C_canton = req.body.canton ? parseInt(req.body.canton, 10) : null;
+    if (req.body.distrito !== undefined) payload.C_distrito = req.body.distrito ? parseInt(req.body.distrito, 10) : null;
+    if (req.body.actividad_economica !== undefined) payload.D_cod_actividad = req.body.actividad_economica || null;
+    if (req.body.justificacion_ingreso !== undefined) payload.C_justificacion_ingreso = req.body.justificacion_ingreso ? parseInt(req.body.justificacion_ingreso, 10) : null;
+    if (req.body.ingreso_mensual !== undefined) payload.M_ingreso_mensual = Number(req.body.ingreso_mensual || 0);
+    if (req.body.es_pep !== undefined) payload.B_es_pep = Boolean(req.body.es_pep);
+    if (req.body.es_sujeto_obligado !== undefined) payload.B_es_sujeto_obligado = Boolean(req.body.es_sujeto_obligado);
+    if (req.body.es_residente !== undefined) payload.B_es_residente = Boolean(req.body.es_residente);
 
-    const result = await db.query(`
-      UPDATE dbo.Cliente SET
-        D_numero_identificacion = COALESCE(@cedula, D_numero_identificacion),
-        C_tipo_persona = COALESCE(@tipo_cliente, C_tipo_persona),
-        D_nombre_1 = COALESCE(@nombre, D_nombre_1),
-        D_apellido_1 = COALESCE(@primer_apellido, D_apellido_1),
-        D_apellido_2 = @segundo_apellido,
-        D_telefono = @telefono,
-        D_correo_electronico = @email,
-        F_nacimiento_const = @fecha_nacimiento,
-        C_provincia = @provincia,
-        C_canton = @canton,
-        C_distrito = @distrito,
-        D_cod_actividad = @actividad_economica,
-        C_justificacion_ingreso = @justificacion_ingreso,
-        M_ingreso_mensual = @ingreso_mensual,
-        B_es_pep = @es_pep,
-        B_es_sujeto_obligado = @es_sujeto_obligado,
-        B_es_residente = @es_residente,
-        F_modificacion = GETDATE()
-      OUTPUT
-        INSERTED.C_cliente AS id_cliente,
-        INSERTED.D_numero_identificacion AS cedula,
-        INSERTED.C_tipo_persona AS tipo_cliente,
-        INSERTED.D_nombre_1 AS nombre,
-        INSERTED.D_apellido_1 AS primer_apellido,
-        INSERTED.D_apellido_2 AS segundo_apellido,
-        INSERTED.D_correo_electronico AS email,
-        INSERTED.D_telefono AS telefono,
-        INSERTED.F_nacimiento_const AS fecha_nacimiento,
-        INSERTED.C_provincia AS provincia,
-        INSERTED.C_canton AS canton,
-        INSERTED.C_distrito AS distrito,
-        INSERTED.D_cod_actividad AS actividad_economica,
-        INSERTED.C_justificacion_ingreso AS justificacion_ingreso,
-        INSERTED.M_ingreso_mensual AS ingreso_mensual,
-        INSERTED.B_es_pep AS es_pep,
-        INSERTED.B_es_sujeto_obligado AS es_sujeto_obligado,
-        INSERTED.B_es_residente AS es_residente,
-        INSERTED.D_estado_cliente AS estado
-      WHERE C_cliente = @id;
-    `, [
-      { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
-      { name: 'cedula', type: sql.NVarChar(50), value: cedula || null },
-      { name: 'tipo_cliente', type: sql.TinyInt, value: parseInt(tipo_cliente) || 1 },
-      { name: 'nombre', type: sql.NVarChar(60), value: nombre || null },
-      { name: 'primer_apellido', type: sql.NVarChar(60), value: primer_apellido || null },
-      { name: 'segundo_apellido', type: sql.NVarChar(60), value: segundo_apellido || null },
-      { name: 'telefono', type: sql.NVarChar(20), value: telefono || null },
-      { name: 'email', type: sql.NVarChar(120), value: email || null },
-      { name: 'fecha_nacimiento', type: sql.Date, value: fecha_nacimiento || null },
-      { name: 'provincia', type: sql.TinyInt, value: provincia ? parseInt(provincia) : null },
-      { name: 'canton', type: sql.SmallInt, value: canton ? parseInt(canton) : null },
-      { name: 'distrito', type: sql.Int, value: distrito ? parseInt(distrito) : null },
-      { name: 'actividad_economica', type: sql.NVarChar(20), value: actividad_economica || null },
-      { name: 'justificacion_ingreso', type: sql.TinyInt, value: justificacion_ingreso ? parseInt(justificacion_ingreso) : null },
-      { name: 'ingreso_mensual', type: sql.Decimal(15, 2), value: Number(ingreso_mensual || 0) },
-      { name: 'es_pep', type: sql.Bit, value: Boolean(es_pep) },
-      { name: 'es_sujeto_obligado', type: sql.Bit, value: Boolean(es_sujeto_obligado) },
-      { name: 'es_residente', type: sql.Bit, value: Boolean(es_residente) },
+    await updateRecord('Cliente', 'C_cliente', req.params.id, payload);
+
+    const result = await db.query(`${SELECT_CLIENTES} WHERE C_cliente = @id;`, [
+      { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
 
     if (!result.recordset.length) {
@@ -450,17 +332,7 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /api/clientes/:id
 router.delete('/:id', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      DELETE FROM dbo.Cliente
-      OUTPUT DELETED.C_cliente AS id_cliente
-      WHERE C_cliente = @id;
-    `, [
-      { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
-    ]);
-
-    if (!result.recordset.length) {
-      return res.status(404).json({ error: 'Cliente no encontrado' });
-    }
+    await deleteRecord('Cliente', 'C_cliente', req.params.id);
 
     res.json({ message: 'Cliente eliminado exitosamente' });
   } catch (err) {
