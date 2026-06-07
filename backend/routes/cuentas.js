@@ -6,23 +6,16 @@ const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
 
 router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_cuenta AS id_cuenta, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_cuenta,
-             D_numero_cuenta AS numero_cuenta, M_saldo_disponible AS saldo, D_estado AS estado
-      FROM dbo.Cuenta
-      ORDER BY C_cuenta;
-    `);
+    const result = await db.query('SELECT * FROM dbo.vw_api_cuentas ORDER BY id_cuenta;');
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) { next(err); }
 });
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_cuenta AS id_cuenta, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_cuenta,
-             D_numero_cuenta AS numero_cuenta, M_saldo_disponible AS saldo, D_estado AS estado
-      FROM dbo.Cuenta WHERE C_cuenta = @id;
-    `, [{ name: 'id', type: sql.Int, value: parseInt(req.params.id) }]);
+    const result = await db.query('SELECT * FROM dbo.vw_api_cuentas WHERE id_cuenta = @id;', [
+      { name: 'id', type: sql.Int, value: parseInt(req.params.id) }
+    ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Cuenta no encontrada' });
     res.json({ data: result.recordset[0] });
   } catch (err) { next(err); }
@@ -42,11 +35,7 @@ router.post('/', async (req, res, next) => {
       M_saldo_contable: saldo,
       D_estado: req.body.estado === '0' ? 'Inactiva' : (req.body.estado || 'Activa'),
     });
-    const result = await db.query(`
-      SELECT C_cuenta AS id_cuenta, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_cuenta,
-             D_numero_cuenta AS numero_cuenta, M_saldo_disponible AS saldo, D_estado AS estado
-      FROM dbo.Cuenta WHERE C_cuenta = @id;
-    `, [
+    const result = await db.query('SELECT * FROM dbo.vw_api_cuentas WHERE id_cuenta = @id;', [
       { name: 'id', type: sql.Int, value: id },
     ]);
     res.status(201).json({ data: result.recordset[0], message: 'Cuenta creada' });
@@ -66,11 +55,7 @@ router.put('/:id', async (req, res, next) => {
     if (req.body.estado !== undefined) payload.D_estado = req.body.estado === '0' ? 'Inactiva' : req.body.estado;
 
     await updateRecord('Cuenta', 'C_cuenta', req.params.id, payload);
-    const result = await db.query(`
-      SELECT C_cuenta AS id_cuenta, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_cuenta,
-             D_numero_cuenta AS numero_cuenta, M_saldo_disponible AS saldo, D_estado AS estado
-      FROM dbo.Cuenta WHERE C_cuenta = @id;
-    `, [
+    const result = await db.query('SELECT * FROM dbo.vw_api_cuentas WHERE id_cuenta = @id;', [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Cuenta no encontrada' });

@@ -6,25 +6,16 @@ const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
 
 router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             D_num_tarjeta AS numero_tarjeta, M_limite_credito AS limite_credito,
-             M_saldo_utilizado AS saldo_actual, D_estado AS estado
-      FROM dbo.TarjetaCredito
-      ORDER BY C_tarjeta;
-    `);
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas ORDER BY id_tarjeta;');
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) { next(err); }
 });
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             D_num_tarjeta AS numero_tarjeta, M_limite_credito AS limite_credito,
-             M_saldo_utilizado AS saldo_actual, D_estado AS estado
-      FROM dbo.TarjetaCredito WHERE C_tarjeta = @id;
-    `, [{ name: 'id', type: sql.Int, value: parseInt(req.params.id) }]);
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas WHERE id_tarjeta = @id;', [
+      { name: 'id', type: sql.Int, value: parseInt(req.params.id) }
+    ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Tarjeta no encontrada' });
     res.json({ data: result.recordset[0] });
   } catch (err) { next(err); }
@@ -51,12 +42,7 @@ router.post('/', async (req, res, next) => {
       N_dia_pago: 30,
       D_estado: req.body.estado === '0' ? 'Bloqueada' : (req.body.estado || 'Activa'),
     });
-    const result = await db.query(`
-      SELECT C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             D_num_tarjeta AS numero_tarjeta, M_limite_credito AS limite_credito,
-             M_saldo_utilizado AS saldo_actual, D_estado AS estado
-      FROM dbo.TarjetaCredito WHERE C_tarjeta = @id;
-    `, [
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas WHERE id_tarjeta = @id;', [
       { name: 'id', type: sql.Int, value: id },
     ]);
     res.status(201).json({ data: result.recordset[0], message: 'Tarjeta creada' });
@@ -81,12 +67,7 @@ router.put('/:id', async (req, res, next) => {
     if (req.body.estado !== undefined) payload.D_estado = req.body.estado === '0' ? 'Bloqueada' : req.body.estado;
 
     await updateRecord('TarjetaCredito', 'C_tarjeta', req.params.id, payload);
-    const result = await db.query(`
-      SELECT C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             D_num_tarjeta AS numero_tarjeta, M_limite_credito AS limite_credito,
-             M_saldo_utilizado AS saldo_actual, D_estado AS estado
-      FROM dbo.TarjetaCredito WHERE C_tarjeta = @id;
-    `, [
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas WHERE id_tarjeta = @id;', [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Tarjeta no encontrada' });

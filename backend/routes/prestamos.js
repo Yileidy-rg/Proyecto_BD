@@ -6,25 +6,16 @@ const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
 
 router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_credito AS id_prestamo, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_prestamo,
-             M_monto_aprobado AS monto, Q_plazo_meses AS plazo_meses, M_tasa_interes AS tasa_interes,
-             F_formalizacion AS fecha_desembolso, D_estado AS estado
-      FROM dbo.Credito
-      ORDER BY C_credito;
-    `);
+    const result = await db.query('SELECT * FROM dbo.vw_api_creditos ORDER BY id_prestamo;');
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) { next(err); }
 });
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_credito AS id_prestamo, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_prestamo,
-             M_monto_aprobado AS monto, Q_plazo_meses AS plazo_meses, M_tasa_interes AS tasa_interes,
-             F_formalizacion AS fecha_desembolso, D_estado AS estado
-      FROM dbo.Credito WHERE C_credito = @id;
-    `, [{ name: 'id', type: sql.Int, value: parseInt(req.params.id) }]);
+    const result = await db.query('SELECT * FROM dbo.vw_api_creditos WHERE id_prestamo = @id;', [
+      { name: 'id', type: sql.Int, value: parseInt(req.params.id) }
+    ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Préstamo no encontrado' });
     res.json({ data: result.recordset[0] });
   } catch (err) { next(err); }
@@ -55,12 +46,7 @@ router.post('/', async (req, res, next) => {
       M_cuota_mensual: plazo > 0 ? monto / plazo : null,
       D_estado: req.body.estado === '0' ? 'Cancelado' : (req.body.estado || 'Vigente'),
     });
-    const result = await db.query(`
-      SELECT C_credito AS id_prestamo, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_prestamo,
-             M_monto_aprobado AS monto, Q_plazo_meses AS plazo_meses, M_tasa_interes AS tasa_interes,
-             F_formalizacion AS fecha_desembolso, D_estado AS estado
-      FROM dbo.Credito WHERE C_credito = @id;
-    `, [
+    const result = await db.query('SELECT * FROM dbo.vw_api_creditos WHERE id_prestamo = @id;', [
       { name: 'id', type: sql.Int, value: id },
     ]);
     res.status(201).json({ data: result.recordset[0], message: 'Préstamo creado' });
@@ -82,12 +68,7 @@ router.put('/:id', async (req, res, next) => {
     if (req.body.estado !== undefined) payload.D_estado = req.body.estado === '0' ? 'Cancelado' : req.body.estado;
 
     await updateRecord('Credito', 'C_credito', req.params.id, payload);
-    const result = await db.query(`
-      SELECT C_credito AS id_prestamo, C_tipo_producto AS id_producto, C_tipo_producto AS tipo_prestamo,
-             M_monto_aprobado AS monto, Q_plazo_meses AS plazo_meses, M_tasa_interes AS tasa_interes,
-             F_formalizacion AS fecha_desembolso, D_estado AS estado
-      FROM dbo.Credito WHERE C_credito = @id;
-    `, [
+    const result = await db.query('SELECT * FROM dbo.vw_api_creditos WHERE id_prestamo = @id;', [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Préstamo no encontrado' });

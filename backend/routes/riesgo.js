@@ -7,22 +7,9 @@ const sql = db.sql;
 router.get('/', async (req, res, next) => {
   try {
     const result = await db.query(`
-      SELECT
-        cr.C_calificacion AS id_evaluacion,
-        cr.C_cliente AS id_cliente,
-        c.D_numero_identificacion AS cedula,
-        COALESCE(c.D_nombre_juridico,
-          CONCAT(TRIM(ISNULL(c.D_nombre_1, '')), ' ', TRIM(ISNULL(c.D_apellido_1, '')))
-        ) AS nombre,
-        CASE WHEN cr.C_tipo_persona = 2 THEN 'JURIDICO' ELSE 'FISICO' END AS tipo_cliente,
-        cr.M_puntaje_total AS puntaje_total,
-        UPPER(nr.D_descripcion) AS nivel_riesgo,
-        cr.D_periodo AS periodo,
-        cr.F_calificacion AS fecha_evaluacion
-      FROM dbo.CalificacionRiesgo cr
-      INNER JOIN dbo.Cliente c ON c.C_cliente = cr.C_cliente
-      LEFT JOIN dbo.cat_NivelRiesgo nr ON nr.N_nivel_riesgo = cr.C_nivel_riesgo
-      ORDER BY cr.F_calificacion DESC, cr.C_calificacion DESC;
+      SELECT *
+      FROM dbo.vw_api_riesgo_historial
+      ORDER BY fecha_evaluacion DESC, id_evaluacion DESC;
     `);
 
     res.json({ data: result.recordset, total: result.recordset.length });
@@ -42,9 +29,8 @@ router.get('/:idCliente', async (req, res, next) => {
     const periodo = req.query.periodo || new Date().toISOString().slice(0, 7);
 
     const result = await db.query(`
-      EXEC dbo.sp_CalificarRiesgoCliente
-        @C_cliente = @idCliente,
-        @D_periodo = @periodo;
+      SELECT *
+      FROM dbo.fn_api_riesgo_cliente(@idCliente, @periodo);
     `, [
       { name: 'idCliente', type: sql.Int, value: idCliente },
       { name: 'periodo', type: sql.Char(7), value: periodo }

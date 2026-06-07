@@ -5,22 +5,13 @@ const sql = db.sql;
 const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
 
 const SELECT_TX = `
-  SELECT
-    t.N_id_transaccion AS id_transaccion,
-    COALESCE(t.N_cuenta, t.N_credito, t.N_tarjeta, t.N_deposito_plazo, t.N_leasing, t.N_transferencia) AS id_producto,
-    tt.D_descripcion AS tipo_transaccion,
-    t.M_monto AS monto,
-    t.D_descripcion AS descripcion,
-    t.F_transaccion AS fecha,
-    t.C_cliente AS id_cliente,
-    t.C_tipo_producto AS tipo_producto
-  FROM dbo.Transaccion t
-  LEFT JOIN dbo.cat_TipoTransaccion tt ON tt.N_tipo_transaccion = t.C_tipo_transaccion
+  SELECT *
+  FROM dbo.vw_api_transacciones
 `;
 
 router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(`${SELECT_TX} ORDER BY t.F_transaccion DESC, t.N_id_transaccion DESC;`);
+    const result = await db.query(`${SELECT_TX} ORDER BY fecha DESC, id_transaccion DESC;`);
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) { next(err); }
 });
@@ -30,8 +21,8 @@ router.get('/producto/:idProducto', async (req, res, next) => {
     const id = parseInt(req.params.idProducto);
     const result = await db.query(`
       ${SELECT_TX}
-      WHERE t.N_cuenta = @id OR t.N_credito = @id OR t.N_tarjeta = @id OR t.N_deposito_plazo = @id OR t.N_leasing = @id OR t.N_transferencia = @id
-      ORDER BY t.F_transaccion DESC;
+      WHERE N_cuenta = @id OR N_credito = @id OR N_tarjeta = @id OR N_deposito_plazo = @id OR N_leasing = @id OR N_transferencia = @id
+      ORDER BY fecha DESC;
     `, [{ name: 'id', type: sql.Int, value: id }]);
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) { next(err); }
@@ -39,7 +30,7 @@ router.get('/producto/:idProducto', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const result = await db.query(`${SELECT_TX} WHERE t.N_id_transaccion = @id;`, [
+    const result = await db.query(`${SELECT_TX} WHERE id_transaccion = @id;`, [
       { name: 'id', type: sql.BigInt, value: parseInt(req.params.id) }
     ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Transacci\u00f3n no encontrada' });
@@ -108,7 +99,7 @@ router.post('/', async (req, res, next) => {
       F_transaccion: new Date(),
     });
 
-    const result = await db.query(`${SELECT_TX} WHERE t.N_id_transaccion = @id;`, [
+    const result = await db.query(`${SELECT_TX} WHERE id_transaccion = @id;`, [
       { name: 'id', type: sql.BigInt, value: id },
     ]);
     res.status(201).json({ data: result.recordset[0], message: 'Transacci\u00f3n registrada' });
@@ -122,7 +113,7 @@ router.put('/:id', async (req, res, next) => {
     if (req.body.descripcion !== undefined) payload.D_descripcion = req.body.descripcion || null;
 
     await updateRecord('Transaccion', 'N_id_transaccion', req.params.id, payload);
-    const result = await db.query(`${SELECT_TX} WHERE t.N_id_transaccion = @id;`, [
+    const result = await db.query(`${SELECT_TX} WHERE id_transaccion = @id;`, [
       { name: 'id', type: sql.BigInt, value: parseInt(req.params.id, 10) },
     ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Transacci\u00f3n no encontrada' });

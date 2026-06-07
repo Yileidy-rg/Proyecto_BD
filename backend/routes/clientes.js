@@ -8,74 +8,14 @@ const { sql } = db;
 const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
 
 const SELECT_CLIENTES = `
-  SELECT
-    C_cliente AS id_cliente,
-    D_numero_identificacion AS cedula,
-    C_tipo_persona AS tipo_cliente,
-    D_nombre_1 AS nombre,
-    D_nombre_2 AS segundo_nombre,
-    D_apellido_1 AS primer_apellido,
-    D_apellido_2 AS segundo_apellido,
-    D_correo_electronico AS email,
-    D_telefono AS telefono,
-    F_nacimiento_const AS fecha_nacimiento,
-    C_provincia AS provincia,
-    C_canton AS canton,
-    C_distrito AS distrito,
-    D_cod_actividad AS actividad_economica,
-    C_justificacion_ingreso AS justificacion_ingreso,
-    M_ingreso_mensual AS ingreso_mensual,
-    B_es_pep AS es_pep,
-    B_es_sujeto_obligado AS es_sujeto_obligado,
-    B_es_residente AS es_residente,
-    F_vinculacion AS fecha_vinculacion,
-    D_estado_cliente AS estado
-  FROM dbo.Cliente
+  SELECT *
+  FROM dbo.vw_api_clientes
 `;
 
 const SELECT_BUSQUEDA_CLIENTES = `
   SELECT TOP (@limite)
-    c.C_cliente,
-    c.D_numero_identificacion,
-    c.D_nombre_1,
-    c.D_nombre_2,
-    c.D_apellido_1,
-    c.D_apellido_2,
-    fn.D_nombre_completo,
-    CASE c.C_tipo_persona
-      WHEN 1 THEN 'Fisico'
-      WHEN 2 THEN 'Juridico'
-      ELSE CONCAT('Tipo ', c.C_tipo_persona)
-    END AS T_tipo_persona,
-    c.D_correo_electronico,
-    c.D_telefono,
-    c.F_nacimiento_const,
-    c.C_tipo_persona,
-    c.C_provincia,
-    c.C_canton,
-    c.C_distrito,
-    c.D_cod_actividad,
-    c.C_justificacion_ingreso,
-    c.M_ingreso_mensual,
-    c.B_es_pep,
-    c.B_es_sujeto_obligado,
-    c.B_es_residente,
-    c.D_estado_cliente,
-    pr.D_descripcion AS D_provincia,
-    ca.D_descripcion AS D_canton,
-    di.D_descripcion AS D_distrito
-  FROM dbo.Cliente c
-  LEFT JOIN dbo.cat_Provincia pr ON pr.N_provincia = c.C_provincia
-  LEFT JOIN dbo.cat_Canton ca ON ca.N_canton = c.C_canton AND ca.C_provincia = c.C_provincia
-  LEFT JOIN dbo.cat_Distrito di ON di.N_distrito = c.C_distrito AND di.C_canton = c.C_canton
-  CROSS APPLY (
-    SELECT COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(
-      COALESCE(c.D_nombre_1, ''),
-      CASE WHEN c.D_nombre_2 IS NULL OR c.D_nombre_2 = '' THEN '' ELSE CONCAT(' ', c.D_nombre_2) END,
-      CASE WHEN c.D_apellido_1 IS NULL OR c.D_apellido_1 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_1) END,
-      CASE WHEN c.D_apellido_2 IS NULL OR c.D_apellido_2 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_2) END
-    ))), ''), c.D_nombre_juridico) AS D_nombre_completo
-  ) fn
+    *
+  FROM dbo.vw_api_clientes_busqueda c
 `;
 
 // GET /api/clientes/buscar/inteligente?termino=...
@@ -105,11 +45,11 @@ router.get('/buscar/inteligente', async (req, res, next) => {
         OR c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
         OR c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
         OR c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
-        OR c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
+        OR c.D_nombre_completo COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
       )
     `;
     const extraTokenWhere = extraTokenParams.map(({ name }) => `
-      fn.D_nombre_completo COLLATE Latin1_General_CI_AI LIKE @${name}
+      c.D_nombre_completo COLLATE Latin1_General_CI_AI LIKE @${name}
     `).join(' AND ');
     const tokenWhere = [firstTokenWhere, extraTokenWhere].filter(Boolean).join(' AND ');
 
@@ -145,14 +85,14 @@ router.get('/buscar/inteligente', async (req, res, next) => {
       result = await db.query(`
         ${SELECT_BUSQUEDA_CLIENTES}
         WHERE
-          pr.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR ca.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR di.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+          c.D_provincia COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_canton COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_distrito COLLATE Latin1_General_CI_AI LIKE @startsWith
         ORDER BY
           CASE
-            WHEN pr.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 0
-            WHEN ca.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
-            WHEN di.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
+            WHEN c.D_provincia COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 0
+            WHEN c.D_canton COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
+            WHEN c.D_distrito COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
             ELSE 3
           END,
           c.C_cliente;
@@ -199,7 +139,7 @@ router.get('/buscar/inteligente', async (req, res, next) => {
 // GET /api/clientes
 router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(`${SELECT_CLIENTES} ORDER BY C_cliente;`);
+    const result = await db.query(`${SELECT_CLIENTES} ORDER BY id_cliente;`);
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) {
     next(err);
@@ -209,7 +149,7 @@ router.get('/', async (req, res, next) => {
 // GET /api/clientes/:id
 router.get('/:id', async (req, res, next) => {
   try {
-    const result = await db.query(`${SELECT_CLIENTES} WHERE C_cliente = @id;`, [
+    const result = await db.query(`${SELECT_CLIENTES} WHERE id_cliente = @id;`, [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
     ]);
 
@@ -275,7 +215,7 @@ router.post('/', async (req, res, next) => {
       D_estado_cliente: 'Activo',
     });
 
-    const result = await db.query(`${SELECT_CLIENTES} WHERE C_cliente = @id;`, [
+    const result = await db.query(`${SELECT_CLIENTES} WHERE id_cliente = @id;`, [
       { name: 'id', type: sql.Int, value: id },
     ]);
 
@@ -312,7 +252,7 @@ router.put('/:id', async (req, res, next) => {
 
     await updateRecord('Cliente', 'C_cliente', req.params.id, payload);
 
-    const result = await db.query(`${SELECT_CLIENTES} WHERE C_cliente = @id;`, [
+    const result = await db.query(`${SELECT_CLIENTES} WHERE id_cliente = @id;`, [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
 

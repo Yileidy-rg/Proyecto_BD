@@ -6,188 +6,7 @@ const { insertRecord } = require('./_spWrites');
 
 const SELECT_PRODUCTOS = `
   SELECT TOP (@limite) *
-  FROM (
-    SELECT
-      c.C_cuenta AS id_producto,
-      c.C_cliente AS id_cliente,
-      c.C_tipo_producto AS tipo_producto,
-      tp.D_descripcion AS tipo_producto_desc,
-      c.C_moneda AS moneda,
-      c.F_apertura AS fecha_apertura,
-      UPPER(c.D_estado) AS estado,
-      CONCAT('Cuenta ', c.D_numero_cuenta) AS descripcion,
-      'Cuenta' AS origen
-    FROM dbo.Cuenta c
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = c.C_tipo_producto
-
-    UNION ALL
-    SELECT
-      dp.C_deposito,
-      dp.C_cliente,
-      2,
-      tp.D_descripcion,
-      dp.C_moneda,
-      dp.F_emision,
-      UPPER(dp.D_estado),
-      CONCAT('Deposito a plazo ', dp.D_numero_cert),
-      'DepositoPlazo'
-    FROM dbo.DepositoPlazo dp
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 2
-
-    UNION ALL
-    SELECT
-      dj.C_dep_judicial,
-      dj.C_cliente,
-      5,
-      tp.D_descripcion,
-      dj.C_moneda,
-      dj.F_deposito,
-      UPPER(dj.D_estado),
-      CONCAT('Deposito judicial ', dj.D_num_expediente),
-      'DepositoJudicial'
-    FROM dbo.DepositoJudicial dj
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 5
-
-    UNION ALL
-    SELECT
-      cr.C_credito,
-      cr.C_cliente,
-      cr.C_tipo_producto,
-      tp.D_descripcion,
-      cr.C_moneda,
-      cr.F_formalizacion,
-      UPPER(cr.D_estado),
-      CONCAT('Credito ', cr.D_num_operacion),
-      'Credito'
-    FROM dbo.Credito cr
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = cr.C_tipo_producto
-
-    UNION ALL
-    SELECT
-      tc.C_tarjeta,
-      tc.C_cliente,
-      8,
-      tp.D_descripcion,
-      tc.C_moneda,
-      tc.F_emision,
-      UPPER(tc.D_estado),
-      CONCAT('Tarjeta ', tc.D_num_tarjeta),
-      'TarjetaCredito'
-    FROM dbo.TarjetaCredito tc
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 8
-
-    UNION ALL
-    SELECT
-      l.C_leasing,
-      l.C_cliente,
-      11,
-      tp.D_descripcion,
-      l.C_moneda,
-      l.F_inicio,
-      UPPER(l.D_estado),
-      CONCAT('Leasing ', l.D_num_contrato),
-      'Leasing'
-    FROM dbo.Leasing l
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 11
-
-    UNION ALL
-    SELECT
-      a.C_aval,
-      a.C_cliente,
-      12,
-      tp.D_descripcion,
-      a.C_moneda,
-      a.F_emision,
-      UPPER(a.D_estado),
-      CONCAT('Aval ', a.D_num_documento),
-      'AvalGarantia'
-    FROM dbo.AvalGarantia a
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 12
-
-    UNION ALL
-    SELECT
-      t.C_transferencia,
-      t.C_cliente,
-      t.C_tipo_producto,
-      tp.D_descripcion,
-      t.C_moneda,
-      CAST(t.F_transaccion AS date),
-      UPPER(t.D_estado),
-      CONCAT('Transferencia ', t.D_num_referencia),
-      'Transferencia'
-    FROM dbo.Transferencia t
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = t.C_tipo_producto
-
-    UNION ALL
-    SELECT
-      od.C_operacion,
-      od.C_cliente,
-      15,
-      tp.D_descripcion,
-      od.C_moneda_origen,
-      CAST(od.F_operacion AS date),
-      'ACTIVA',
-      CONCAT('Divisas ', od.T_tipo_operacion),
-      'OperacionDivisas'
-    FROM dbo.OperacionDivisas od
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 15
-
-    UNION ALL
-    SELECT
-      f.C_fideicomiso,
-      f.C_cliente,
-      16,
-      tp.D_descripcion,
-      f.C_moneda,
-      f.F_constitucion,
-      UPPER(f.D_estado),
-      CONCAT('Fideicomiso ', f.D_num_contrato),
-      'Fideicomiso'
-    FROM dbo.Fideicomiso f
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 16
-
-    UNION ALL
-    SELECT
-      atm.C_uso_atm,
-      atm.C_cliente,
-      17,
-      tp.D_descripcion,
-      atm.C_moneda,
-      CAST(atm.F_operacion AS date),
-      'ACTIVA',
-      CONCAT('ATM ', atm.D_codigo_atm),
-      'UsoATM'
-    FROM dbo.UsoATM atm
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 17
-
-    UNION ALL
-    SELECT
-      bl.C_operacion_bl,
-      bl.C_cliente,
-      18,
-      tp.D_descripcion,
-      ISNULL(bl.C_moneda, 1),
-      CAST(bl.F_operacion AS date),
-      UPPER(bl.D_estado),
-      CONCAT('Banca en linea ', bl.D_tipo_operacion),
-      'BancaEnLinea'
-    FROM dbo.BancaEnLinea bl
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 18
-
-    UNION ALL
-    SELECT
-      cs.C_caja,
-      cs.C_cliente,
-      19,
-      tp.D_descripcion,
-      1,
-      cs.F_inicio,
-      UPPER(cs.D_estado),
-      CONCAT('Caja seguridad ', cs.D_numero_caja),
-      'CajaSeguridad'
-    FROM dbo.CajaSeguridad cs
-    LEFT JOIN dbo.cat_TipoProducto tp ON tp.N_tipo_producto = 19
-  ) p
+  FROM dbo.vw_api_productos p
   WHERE (@cliente IS NULL OR p.id_cliente = @cliente)
   ORDER BY p.id_cliente, p.tipo_producto, p.id_producto
 `;
@@ -209,12 +28,9 @@ function fechaHoy(value) {
 router.get('/tipos', async (req, res, next) => {
   try {
     const result = await db.query(`
-      SELECT
-        N_tipo_producto AS value,
-        D_descripcion AS label,
-        C_tipo_operacion AS tipo_operacion
-      FROM dbo.cat_TipoProducto
-      ORDER BY N_tipo_producto;
+      SELECT *
+      FROM dbo.vw_api_tipos_producto
+      ORDER BY value;
     `);
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) {
@@ -252,11 +68,9 @@ router.get('/:id', async (req, res, next) => {
   try {
     const result = await db.query(`
       SELECT *
-      FROM (${SELECT_PRODUCTOS.replace('SELECT TOP (@limite) *', 'SELECT *')}) q
+      FROM dbo.vw_api_productos q
       WHERE q.id_producto = @id;
     `, [
-      { name: 'limite', type: sql.Int, value: 1000 },
-      { name: 'cliente', type: sql.Int, value: null },
       { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Producto no encontrado' });
