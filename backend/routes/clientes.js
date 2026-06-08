@@ -5,80 +5,39 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { sql } = db;
+const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
+const {
+  cedulaBody,
+  handleValidation,
+  idParam,
+  optionalBooleanBody,
+  optionalDateBody,
+  optionalIdBody,
+  optionalIntBody,
+  optionalMoneyBody,
+  optionalNonEmptyBody,
+  optionalIntQuery,
+  optionalNonEmptyQuery,
+  requiredNonEmptyBody,
+} = require('./_validation');
 
 const SELECT_CLIENTES = `
-  SELECT
-    C_cliente AS id_cliente,
-    D_numero_identificacion AS cedula,
-    C_tipo_persona AS tipo_cliente,
-    D_nombre_1 AS nombre,
-    D_nombre_2 AS segundo_nombre,
-    D_apellido_1 AS primer_apellido,
-    D_apellido_2 AS segundo_apellido,
-    D_correo_electronico AS email,
-    D_telefono AS telefono,
-    F_nacimiento_const AS fecha_nacimiento,
-    C_provincia AS provincia,
-    C_canton AS canton,
-    C_distrito AS distrito,
-    D_cod_actividad AS actividad_economica,
-    C_justificacion_ingreso AS justificacion_ingreso,
-    M_ingreso_mensual AS ingreso_mensual,
-    B_es_pep AS es_pep,
-    B_es_sujeto_obligado AS es_sujeto_obligado,
-    B_es_residente AS es_residente,
-    F_vinculacion AS fecha_vinculacion,
-    D_estado_cliente AS estado
-  FROM dbo.Cliente
+  SELECT *
+  FROM dbo.vw_api_clientes
 `;
 
 const SELECT_BUSQUEDA_CLIENTES = `
   SELECT TOP (@limite)
-    c.C_cliente,
-    c.D_numero_identificacion,
-    c.D_nombre_1,
-    c.D_nombre_2,
-    c.D_apellido_1,
-    c.D_apellido_2,
-    fn.D_nombre_completo,
-    CASE c.C_tipo_persona
-      WHEN 1 THEN 'Fisico'
-      WHEN 2 THEN 'Juridico'
-      ELSE CONCAT('Tipo ', c.C_tipo_persona)
-    END AS T_tipo_persona,
-    c.D_correo_electronico,
-    c.D_telefono,
-    c.F_nacimiento_const,
-    c.C_tipo_persona,
-    c.C_provincia,
-    c.C_canton,
-    c.C_distrito,
-    c.D_cod_actividad,
-    c.C_justificacion_ingreso,
-    c.M_ingreso_mensual,
-    c.B_es_pep,
-    c.B_es_sujeto_obligado,
-    c.B_es_residente,
-    c.D_estado_cliente,
-    pr.D_descripcion AS D_provincia,
-    ca.D_descripcion AS D_canton,
-    di.D_descripcion AS D_distrito
-  FROM dbo.Cliente c
-  LEFT JOIN dbo.cat_Provincia pr ON pr.N_provincia = c.C_provincia
-  LEFT JOIN dbo.cat_Canton ca ON ca.N_canton = c.C_canton AND ca.C_provincia = c.C_provincia
-  LEFT JOIN dbo.cat_Distrito di ON di.N_distrito = c.C_distrito AND di.C_canton = c.C_canton
-  CROSS APPLY (
-    SELECT COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(
-      COALESCE(c.D_nombre_1, ''),
-      CASE WHEN c.D_nombre_2 IS NULL OR c.D_nombre_2 = '' THEN '' ELSE CONCAT(' ', c.D_nombre_2) END,
-      CASE WHEN c.D_apellido_1 IS NULL OR c.D_apellido_1 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_1) END,
-      CASE WHEN c.D_apellido_2 IS NULL OR c.D_apellido_2 = '' THEN '' ELSE CONCAT(' ', c.D_apellido_2) END
-    ))), ''), c.D_nombre_juridico) AS D_nombre_completo
-  ) fn
+    *
+  FROM dbo.vw_api_clientes_busqueda c
 `;
 
 // GET /api/clientes/buscar/inteligente?termino=...
-router.get('/buscar/inteligente', async (req, res, next) => {
+router.get('/buscar/inteligente', [
+  optionalNonEmptyQuery('termino', { max: 120 }),
+  optionalIntQuery('limite', { min: 1, max: 20 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const terminoRaw = req.query.termino || '';
     const limite = Math.min(Math.max(Number(req.query.limite) || 20, 1), 20);
@@ -104,11 +63,11 @@ router.get('/buscar/inteligente', async (req, res, next) => {
         OR c.D_nombre_2 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
         OR c.D_apellido_1 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
         OR c.D_apellido_2 COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
-        OR c.D_nombre_juridico COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
+        OR c.D_nombre_completo COLLATE Latin1_General_CI_AI LIKE @firstTokenStart
       )
     `;
     const extraTokenWhere = extraTokenParams.map(({ name }) => `
-      fn.D_nombre_completo COLLATE Latin1_General_CI_AI LIKE @${name}
+      c.D_nombre_completo COLLATE Latin1_General_CI_AI LIKE @${name}
     `).join(' AND ');
     const tokenWhere = [firstTokenWhere, extraTokenWhere].filter(Boolean).join(' AND ');
 
@@ -144,14 +103,14 @@ router.get('/buscar/inteligente', async (req, res, next) => {
       result = await db.query(`
         ${SELECT_BUSQUEDA_CLIENTES}
         WHERE
-          pr.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR ca.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
-          OR di.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith
+          c.D_provincia COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_canton COLLATE Latin1_General_CI_AI LIKE @startsWith
+          OR c.D_distrito COLLATE Latin1_General_CI_AI LIKE @startsWith
         ORDER BY
           CASE
-            WHEN pr.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 0
-            WHEN ca.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
-            WHEN di.D_descripcion COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
+            WHEN c.D_provincia COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 0
+            WHEN c.D_canton COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 1
+            WHEN c.D_distrito COLLATE Latin1_General_CI_AI LIKE @startsWith THEN 2
             ELSE 3
           END,
           c.C_cliente;
@@ -198,7 +157,7 @@ router.get('/buscar/inteligente', async (req, res, next) => {
 // GET /api/clientes
 router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(`${SELECT_CLIENTES} ORDER BY C_cliente;`);
+    const result = await db.query(`${SELECT_CLIENTES} ORDER BY id_cliente;`);
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) {
     next(err);
@@ -206,9 +165,9 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET /api/clientes/:id
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
-    const result = await db.query(`${SELECT_CLIENTES} WHERE C_cliente = @id;`, [
+    const result = await db.query(`${SELECT_CLIENTES} WHERE id_cliente = @id;`, [
       { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
     ]);
 
@@ -223,7 +182,50 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // POST /api/clientes
-router.post('/', async (req, res, next) => {
+const clienteCreateValidators = [
+  requiredNonEmptyBody('nombre', { max: 100 }),
+  requiredNonEmptyBody('primer_apellido', { max: 100 }),
+  optionalNonEmptyBody('segundo_apellido', { max: 100 }),
+  cedulaBody('cedula'),
+  optionalNonEmptyBody('email', { max: 150 }).optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('email debe ser valido'),
+  optionalNonEmptyBody('telefono', { max: 30 }),
+  optionalDateBody('fecha_nacimiento'),
+  optionalIdBody('tipo_cliente'),
+  optionalIdBody('provincia'),
+  optionalIdBody('canton'),
+  optionalIdBody('distrito'),
+  optionalNonEmptyBody('actividad_economica', { max: 50 }),
+  optionalIdBody('justificacion_ingreso'),
+  optionalMoneyBody('ingreso_mensual', { min: 0 }),
+  optionalBooleanBody('es_pep'),
+  optionalBooleanBody('es_sujeto_obligado'),
+  optionalBooleanBody('es_residente'),
+  handleValidation,
+];
+
+const clienteUpdateValidators = [
+  idParam(),
+  optionalNonEmptyBody('nombre', { max: 100 }),
+  optionalNonEmptyBody('primer_apellido', { max: 100 }),
+  optionalNonEmptyBody('segundo_apellido', { max: 100 }),
+  cedulaBody('cedula', { required: false }),
+  optionalNonEmptyBody('email', { max: 150 }).optional({ nullable: true, checkFalsy: true }).isEmail().withMessage('email debe ser valido'),
+  optionalNonEmptyBody('telefono', { max: 30 }),
+  optionalDateBody('fecha_nacimiento'),
+  optionalIdBody('tipo_cliente'),
+  optionalIdBody('provincia'),
+  optionalIdBody('canton'),
+  optionalIdBody('distrito'),
+  optionalNonEmptyBody('actividad_economica', { max: 50 }),
+  optionalIdBody('justificacion_ingreso'),
+  optionalMoneyBody('ingreso_mensual', { min: 0 }),
+  optionalBooleanBody('es_pep'),
+  optionalBooleanBody('es_sujeto_obligado'),
+  optionalBooleanBody('es_residente'),
+  handleValidation,
+];
+
+router.post('/', clienteCreateValidators, async (req, res, next) => {
   try {
     const {
       nombre,
@@ -251,93 +253,31 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const result = await db.query(`
-      DECLARE @id INT = ISNULL((SELECT MAX(C_cliente) FROM dbo.Cliente), 0) + 1;
+    const id = await insertRecord('Cliente', 'C_cliente', {
+      C_tipo_identificacion: 1,
+      D_numero_identificacion: cedula,
+      C_tipo_persona: parseInt(tipo_cliente, 10) || 1,
+      D_nombre_1: nombre,
+      D_apellido_1: primer_apellido,
+      D_apellido_2: segundo_apellido || null,
+      D_telefono: telefono || null,
+      D_correo_electronico: email || null,
+      F_nacimiento_const: fecha_nacimiento || null,
+      C_provincia: provincia ? parseInt(provincia, 10) : null,
+      C_canton: canton ? parseInt(canton, 10) : null,
+      C_distrito: distrito ? parseInt(distrito, 10) : null,
+      D_cod_actividad: actividad_economica || null,
+      C_justificacion_ingreso: justificacion_ingreso ? parseInt(justificacion_ingreso, 10) : null,
+      M_ingreso_mensual: Number(ingreso_mensual || 0),
+      B_es_pep: Boolean(es_pep),
+      B_es_sujeto_obligado: Boolean(es_sujeto_obligado),
+      B_es_residente: Boolean(es_residente),
+      F_vinculacion: new Date(),
+      D_estado_cliente: 'Activo',
+    });
 
-      INSERT INTO dbo.Cliente (
-        C_cliente,
-        C_tipo_identificacion,
-        D_numero_identificacion,
-        C_tipo_persona,
-        D_nombre_1,
-        D_apellido_1,
-        D_apellido_2,
-        D_telefono,
-        D_correo_electronico,
-        F_nacimiento_const,
-        C_provincia,
-        C_canton,
-        C_distrito,
-        D_cod_actividad,
-        C_justificacion_ingreso,
-        M_ingreso_mensual,
-        B_es_pep,
-        B_es_sujeto_obligado,
-        B_es_residente,
-        F_vinculacion,
-        D_estado_cliente
-      )
-      OUTPUT
-        INSERTED.C_cliente AS id_cliente,
-        INSERTED.D_numero_identificacion AS cedula,
-        INSERTED.C_tipo_persona AS tipo_cliente,
-        INSERTED.D_nombre_1 AS nombre,
-        INSERTED.D_apellido_1 AS primer_apellido,
-        INSERTED.D_apellido_2 AS segundo_apellido,
-        INSERTED.D_correo_electronico AS email,
-        INSERTED.D_telefono AS telefono,
-        INSERTED.F_nacimiento_const AS fecha_nacimiento,
-        INSERTED.C_provincia AS provincia,
-        INSERTED.C_canton AS canton,
-        INSERTED.C_distrito AS distrito,
-        INSERTED.D_cod_actividad AS actividad_economica,
-        INSERTED.C_justificacion_ingreso AS justificacion_ingreso,
-        INSERTED.M_ingreso_mensual AS ingreso_mensual,
-        INSERTED.B_es_pep AS es_pep,
-        INSERTED.B_es_sujeto_obligado AS es_sujeto_obligado,
-        INSERTED.B_es_residente AS es_residente,
-        INSERTED.D_estado_cliente AS estado
-      VALUES (
-        @id,
-        1,
-        @cedula,
-        @tipo_cliente,
-        @nombre,
-        @primer_apellido,
-        @segundo_apellido,
-        @telefono,
-        @email,
-        @fecha_nacimiento,
-        @provincia,
-        @canton,
-        @distrito,
-        @actividad_economica,
-        @justificacion_ingreso,
-        @ingreso_mensual,
-        @es_pep,
-        @es_sujeto_obligado,
-        @es_residente,
-        GETDATE(),
-        'Activo'
-      );
-    `, [
-      { name: 'cedula', type: sql.NVarChar(50), value: cedula },
-      { name: 'tipo_cliente', type: sql.TinyInt, value: parseInt(tipo_cliente) || 1 },
-      { name: 'nombre', type: sql.NVarChar(60), value: nombre },
-      { name: 'primer_apellido', type: sql.NVarChar(60), value: primer_apellido },
-      { name: 'segundo_apellido', type: sql.NVarChar(60), value: segundo_apellido || null },
-      { name: 'telefono', type: sql.NVarChar(20), value: telefono || null },
-      { name: 'email', type: sql.NVarChar(120), value: email || null },
-      { name: 'fecha_nacimiento', type: sql.Date, value: fecha_nacimiento || null },
-      { name: 'provincia', type: sql.TinyInt, value: provincia ? parseInt(provincia) : null },
-      { name: 'canton', type: sql.SmallInt, value: canton ? parseInt(canton) : null },
-      { name: 'distrito', type: sql.Int, value: distrito ? parseInt(distrito) : null },
-      { name: 'actividad_economica', type: sql.NVarChar(20), value: actividad_economica || null },
-      { name: 'justificacion_ingreso', type: sql.TinyInt, value: justificacion_ingreso ? parseInt(justificacion_ingreso) : null },
-      { name: 'ingreso_mensual', type: sql.Decimal(15, 2), value: Number(ingreso_mensual || 0) },
-      { name: 'es_pep', type: sql.Bit, value: Boolean(es_pep) },
-      { name: 'es_sujeto_obligado', type: sql.Bit, value: Boolean(es_sujeto_obligado) },
-      { name: 'es_residente', type: sql.Bit, value: Boolean(es_residente) },
+    const result = await db.query(`${SELECT_CLIENTES} WHERE id_cliente = @id;`, [
+      { name: 'id', type: sql.Int, value: id },
     ]);
 
     res.status(201).json({
@@ -350,88 +290,31 @@ router.post('/', async (req, res, next) => {
 });
 
 // PUT /api/clientes/:id
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', clienteUpdateValidators, async (req, res, next) => {
   try {
-    const {
-      nombre,
-      primer_apellido,
-      segundo_apellido = null,
-      cedula,
-      email = null,
-      telefono = null,
-      fecha_nacimiento = null,
-      tipo_cliente = 1,
-      provincia = null,
-      canton = null,
-      distrito = null,
-      actividad_economica = null,
-      justificacion_ingreso = null,
-      ingreso_mensual = 0,
-      es_pep = false,
-      es_sujeto_obligado = false,
-      es_residente = true,
-    } = req.body;
+    const payload = { F_modificacion: new Date() };
+    if (req.body.cedula !== undefined) payload.D_numero_identificacion = req.body.cedula || null;
+    if (req.body.tipo_cliente !== undefined) payload.C_tipo_persona = parseInt(req.body.tipo_cliente, 10) || 1;
+    if (req.body.nombre !== undefined) payload.D_nombre_1 = req.body.nombre || null;
+    if (req.body.primer_apellido !== undefined) payload.D_apellido_1 = req.body.primer_apellido || null;
+    if (req.body.segundo_apellido !== undefined) payload.D_apellido_2 = req.body.segundo_apellido || null;
+    if (req.body.telefono !== undefined) payload.D_telefono = req.body.telefono || null;
+    if (req.body.email !== undefined) payload.D_correo_electronico = req.body.email || null;
+    if (req.body.fecha_nacimiento !== undefined) payload.F_nacimiento_const = req.body.fecha_nacimiento || null;
+    if (req.body.provincia !== undefined) payload.C_provincia = req.body.provincia ? parseInt(req.body.provincia, 10) : null;
+    if (req.body.canton !== undefined) payload.C_canton = req.body.canton ? parseInt(req.body.canton, 10) : null;
+    if (req.body.distrito !== undefined) payload.C_distrito = req.body.distrito ? parseInt(req.body.distrito, 10) : null;
+    if (req.body.actividad_economica !== undefined) payload.D_cod_actividad = req.body.actividad_economica || null;
+    if (req.body.justificacion_ingreso !== undefined) payload.C_justificacion_ingreso = req.body.justificacion_ingreso ? parseInt(req.body.justificacion_ingreso, 10) : null;
+    if (req.body.ingreso_mensual !== undefined) payload.M_ingreso_mensual = Number(req.body.ingreso_mensual || 0);
+    if (req.body.es_pep !== undefined) payload.B_es_pep = Boolean(req.body.es_pep);
+    if (req.body.es_sujeto_obligado !== undefined) payload.B_es_sujeto_obligado = Boolean(req.body.es_sujeto_obligado);
+    if (req.body.es_residente !== undefined) payload.B_es_residente = Boolean(req.body.es_residente);
 
-    const result = await db.query(`
-      UPDATE dbo.Cliente SET
-        D_numero_identificacion = COALESCE(@cedula, D_numero_identificacion),
-        C_tipo_persona = COALESCE(@tipo_cliente, C_tipo_persona),
-        D_nombre_1 = COALESCE(@nombre, D_nombre_1),
-        D_apellido_1 = COALESCE(@primer_apellido, D_apellido_1),
-        D_apellido_2 = @segundo_apellido,
-        D_telefono = @telefono,
-        D_correo_electronico = @email,
-        F_nacimiento_const = @fecha_nacimiento,
-        C_provincia = @provincia,
-        C_canton = @canton,
-        C_distrito = @distrito,
-        D_cod_actividad = @actividad_economica,
-        C_justificacion_ingreso = @justificacion_ingreso,
-        M_ingreso_mensual = @ingreso_mensual,
-        B_es_pep = @es_pep,
-        B_es_sujeto_obligado = @es_sujeto_obligado,
-        B_es_residente = @es_residente,
-        F_modificacion = GETDATE()
-      OUTPUT
-        INSERTED.C_cliente AS id_cliente,
-        INSERTED.D_numero_identificacion AS cedula,
-        INSERTED.C_tipo_persona AS tipo_cliente,
-        INSERTED.D_nombre_1 AS nombre,
-        INSERTED.D_apellido_1 AS primer_apellido,
-        INSERTED.D_apellido_2 AS segundo_apellido,
-        INSERTED.D_correo_electronico AS email,
-        INSERTED.D_telefono AS telefono,
-        INSERTED.F_nacimiento_const AS fecha_nacimiento,
-        INSERTED.C_provincia AS provincia,
-        INSERTED.C_canton AS canton,
-        INSERTED.C_distrito AS distrito,
-        INSERTED.D_cod_actividad AS actividad_economica,
-        INSERTED.C_justificacion_ingreso AS justificacion_ingreso,
-        INSERTED.M_ingreso_mensual AS ingreso_mensual,
-        INSERTED.B_es_pep AS es_pep,
-        INSERTED.B_es_sujeto_obligado AS es_sujeto_obligado,
-        INSERTED.B_es_residente AS es_residente,
-        INSERTED.D_estado_cliente AS estado
-      WHERE C_cliente = @id;
-    `, [
-      { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
-      { name: 'cedula', type: sql.NVarChar(50), value: cedula || null },
-      { name: 'tipo_cliente', type: sql.TinyInt, value: parseInt(tipo_cliente) || 1 },
-      { name: 'nombre', type: sql.NVarChar(60), value: nombre || null },
-      { name: 'primer_apellido', type: sql.NVarChar(60), value: primer_apellido || null },
-      { name: 'segundo_apellido', type: sql.NVarChar(60), value: segundo_apellido || null },
-      { name: 'telefono', type: sql.NVarChar(20), value: telefono || null },
-      { name: 'email', type: sql.NVarChar(120), value: email || null },
-      { name: 'fecha_nacimiento', type: sql.Date, value: fecha_nacimiento || null },
-      { name: 'provincia', type: sql.TinyInt, value: provincia ? parseInt(provincia) : null },
-      { name: 'canton', type: sql.SmallInt, value: canton ? parseInt(canton) : null },
-      { name: 'distrito', type: sql.Int, value: distrito ? parseInt(distrito) : null },
-      { name: 'actividad_economica', type: sql.NVarChar(20), value: actividad_economica || null },
-      { name: 'justificacion_ingreso', type: sql.TinyInt, value: justificacion_ingreso ? parseInt(justificacion_ingreso) : null },
-      { name: 'ingreso_mensual', type: sql.Decimal(15, 2), value: Number(ingreso_mensual || 0) },
-      { name: 'es_pep', type: sql.Bit, value: Boolean(es_pep) },
-      { name: 'es_sujeto_obligado', type: sql.Bit, value: Boolean(es_sujeto_obligado) },
-      { name: 'es_residente', type: sql.Bit, value: Boolean(es_residente) },
+    await updateRecord('Cliente', 'C_cliente', req.params.id, payload);
+
+    const result = await db.query(`${SELECT_CLIENTES} WHERE id_cliente = @id;`, [
+      { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
 
     if (!result.recordset.length) {
@@ -448,19 +331,9 @@ router.put('/:id', async (req, res, next) => {
 });
 
 // DELETE /api/clientes/:id
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
-    const result = await db.query(`
-      DELETE FROM dbo.Cliente
-      OUTPUT DELETED.C_cliente AS id_cliente
-      WHERE C_cliente = @id;
-    `, [
-      { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
-    ]);
-
-    if (!result.recordset.length) {
-      return res.status(404).json({ error: 'Cliente no encontrado' });
-    }
+    await deleteRecord('Cliente', 'C_cliente', req.params.id);
 
     res.json({ message: 'Cliente eliminado exitosamente' });
   } catch (err) {

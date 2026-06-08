@@ -2,27 +2,20 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
+const {
+  body,
+  handleValidation,
+  idParam,
+  query,
+} = require('./_validation');
 
 // GET /api/riesgo — historial de calificaciones guardadas por el SP
 router.get('/', async (req, res, next) => {
   try {
     const result = await db.query(`
-      SELECT
-        cr.C_calificacion AS id_evaluacion,
-        cr.C_cliente AS id_cliente,
-        c.D_numero_identificacion AS cedula,
-        COALESCE(c.D_nombre_juridico,
-          CONCAT(TRIM(ISNULL(c.D_nombre_1, '')), ' ', TRIM(ISNULL(c.D_apellido_1, '')))
-        ) AS nombre,
-        CASE WHEN cr.C_tipo_persona = 2 THEN 'JURIDICO' ELSE 'FISICO' END AS tipo_cliente,
-        cr.M_puntaje_total AS puntaje_total,
-        UPPER(nr.D_descripcion) AS nivel_riesgo,
-        cr.D_periodo AS periodo,
-        cr.F_calificacion AS fecha_evaluacion
-      FROM dbo.CalificacionRiesgo cr
-      INNER JOIN dbo.Cliente c ON c.C_cliente = cr.C_cliente
-      LEFT JOIN dbo.cat_NivelRiesgo nr ON nr.N_nivel_riesgo = cr.C_nivel_riesgo
-      ORDER BY cr.F_calificacion DESC, cr.C_calificacion DESC;
+      SELECT *
+      FROM dbo.vw_api_riesgo_historial
+      ORDER BY fecha_evaluacion DESC, id_evaluacion DESC;
     `);
 
     res.json({ data: result.recordset, total: result.recordset.length });
@@ -32,7 +25,14 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET /api/riesgo/:idCliente — ejecuta el procedimiento almacenado real de la base
-router.get('/:idCliente', async (req, res, next) => {
+router.get('/:idCliente', [
+  idParam('idCliente'),
+  query('periodo')
+    .optional({ nullable: true, checkFalsy: true })
+    .matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .withMessage('periodo debe tener formato YYYY-MM'),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const idCliente = parseInt(req.params.idCliente, 10);
     if (!Number.isInteger(idCliente)) {
@@ -42,9 +42,8 @@ router.get('/:idCliente', async (req, res, next) => {
     const periodo = req.query.periodo || new Date().toISOString().slice(0, 7);
 
     const result = await db.query(`
-      EXEC dbo.sp_CalificarRiesgoCliente
-        @C_cliente = @idCliente,
-        @D_periodo = @periodo;
+      SELECT *
+      FROM dbo.fn_api_riesgo_cliente(@idCliente, @periodo);
     `, [
       { name: 'idCliente', type: sql.Int, value: idCliente },
       { name: 'periodo', type: sql.Char(7), value: periodo }
@@ -71,7 +70,13 @@ router.get('/:idCliente', async (req, res, next) => {
 });
 
 // POST /api/riesgo/recalcular-todos — ejecuta el SP masivo
-router.post('/recalcular-todos', async (req, res, next) => {
+router.post('/recalcular-todos', [
+  body('periodo')
+    .optional({ nullable: true, checkFalsy: true })
+    .matches(/^\d{4}-(0[1-9]|1[0-2])$/)
+    .withMessage('periodo debe tener formato YYYY-MM'),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const periodo = req.body?.periodo || new Date().toISOString().slice(0, 7);
 

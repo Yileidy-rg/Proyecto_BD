@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
+const {
+  body,
+  handleValidation,
+  optionalIntBody,
+  optionalNonEmptyBody,
+} = require('./_validation');
 
 const PADRON_ESCENARIO_1 = `
 <Padron>
@@ -82,7 +88,20 @@ router.get('/', (req, res) => {
   });
 });
 
-router.post('/1', async (req, res, next) => {
+router.post('/1', [
+  optionalIntBody('anio', { min: 2000, max: 2100 }),
+  optionalIntBody('mes_inicio', { min: 1, max: 12 }),
+  optionalIntBody('mes_fin', { min: 1, max: 12 }),
+  body('mes_fin').custom((value, { req }) => {
+    if (!value || !req.body.mes_inicio) return true;
+    if (Number(value) < Number(req.body.mes_inicio)) throw new Error('mes_fin debe ser mayor o igual a mes_inicio');
+    return true;
+  }),
+  optionalNonEmptyBody('padron_xml', { max: 200000 }),
+  optionalNonEmptyBody('canal', { max: 30 }),
+  optionalNonEmptyBody('usuario', { max: 60 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const ahora = new Date();
     const anio = req.body?.anio ? parseInt(req.body.anio, 10) : ahora.getFullYear();
@@ -118,7 +137,7 @@ router.post('/1', async (req, res, next) => {
   }
 });
 
-router.post('/2', async (req, res, next) => {
+router.post('/2', handleValidation, async (req, res, next) => {
   try {
     const result = await db.query('EXEC dbo.sp_Escenario2;');
     res.json({
@@ -130,7 +149,19 @@ router.post('/2', async (req, res, next) => {
   }
 });
 
-router.post('/3', async (req, res, next) => {
+router.post('/3', [
+  optionalIntBody('anio', { min: 2000, max: 2100 }),
+  optionalIntBody('trimestre', { min: 1, max: 4 }),
+  optionalNonEmptyBody('cedula_entidad', { max: 15 }),
+  optionalIntBody('tipo_carga', { min: 1, max: 9 }),
+  optionalIntBody('moneda', { min: 1, max: 255 }),
+  body('datos_malos')
+    .optional({ nullable: true })
+    .isBoolean()
+    .withMessage('datos_malos debe ser booleano')
+    .toBoolean(),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const hoy = new Date();
     const anio = req.body?.anio ? parseInt(req.body.anio, 10) : hoy.getFullYear();

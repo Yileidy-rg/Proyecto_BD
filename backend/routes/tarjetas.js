@@ -2,85 +2,104 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const sql = db.sql;
+const { insertRecord, updateRecord, deleteRecord } = require('./_spWrites');
+const {
+  handleValidation,
+  idParam,
+  optionalMoneyBody,
+  optionalNonEmptyBody,
+  requiredIdBody,
+  requiredPositiveMoneyBody,
+} = require('./_validation');
 
 router.get('/', async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             D_num_tarjeta AS numero_tarjeta, M_limite_credito AS limite_credito,
-             M_saldo_utilizado AS saldo_actual, D_estado AS estado
-      FROM dbo.TarjetaCredito
-      ORDER BY C_tarjeta;
-    `);
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas ORDER BY id_tarjeta;');
     res.json({ data: result.recordset, total: result.recordset.length });
   } catch (err) { next(err); }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
-    const result = await db.query(`
-      SELECT C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             D_num_tarjeta AS numero_tarjeta, M_limite_credito AS limite_credito,
-             M_saldo_utilizado AS saldo_actual, D_estado AS estado
-      FROM dbo.TarjetaCredito WHERE C_tarjeta = @id;
-    `, [{ name: 'id', type: sql.Int, value: parseInt(req.params.id) }]);
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas WHERE id_tarjeta = @id;', [
+      { name: 'id', type: sql.Int, value: parseInt(req.params.id) }
+    ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Tarjeta no encontrada' });
     res.json({ data: result.recordset[0] });
   } catch (err) { next(err); }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', [
+  requiredIdBody('id_cliente'),
+  optionalNonEmptyBody('numero_tarjeta', { max: 30 }),
+  requiredPositiveMoneyBody('limite_credito'),
+  optionalMoneyBody('saldo_actual', { min: 0 }),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
     const limite = parseFloat(req.body.limite_credito || 500000);
     const saldo = parseFloat(req.body.saldo_actual || 0);
-    const result = await db.query(`
-      DECLARE @id INT = ISNULL((SELECT MAX(C_tarjeta) FROM dbo.TarjetaCredito), 0) + 1;
-      DECLARE @cliente INT = ISNULL((SELECT TOP 1 C_cliente FROM dbo.Cliente ORDER BY C_cliente), 1);
-      INSERT INTO dbo.TarjetaCredito (C_tarjeta, C_cliente, D_num_tarjeta, M_limite_credito, M_saldo_utilizado,
-        M_saldo_disponible, M_tasa_interes, F_emision, F_vencimiento, N_dia_corte, N_dia_pago, D_estado)
-      OUTPUT INSERTED.C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             INSERTED.D_num_tarjeta AS numero_tarjeta, INSERTED.M_limite_credito AS limite_credito,
-             INSERTED.M_saldo_utilizado AS saldo_actual, INSERTED.D_estado AS estado
-      VALUES (@id, @cliente, ISNULL(@numero, CONCAT('411111111111', FORMAT(@id, '0000'))), @limite, @saldo,
-        @limite - @saldo, 0.3200, GETDATE(), DATEADD(YEAR, 4, GETDATE()), 15, 30, @estado);
-    `, [
-      { name: 'numero', type: sql.NVarChar(19), value: req.body.numero_tarjeta || null },
-      { name: 'limite', type: sql.Decimal(12, 2), value: limite },
-      { name: 'saldo', type: sql.Decimal(12, 2), value: saldo },
-      { name: 'estado', type: sql.NVarChar(20), value: req.body.estado === '0' ? 'Bloqueada' : (req.body.estado || 'Activa') }
+    const clienteRes = await db.query('SELECT TOP 1 C_cliente FROM dbo.Cliente ORDER BY C_cliente;');
+    const idCliente = req.body.id_cliente ? parseInt(req.body.id_cliente, 10) : (clienteRes.recordset[0]?.C_cliente || 1);
+    const vencimiento = new Date();
+    vencimiento.setFullYear(vencimiento.getFullYear() + 4);
+    const id = await insertRecord('TarjetaCredito', 'C_tarjeta', {
+      C_cliente: idCliente,
+      D_num_tarjeta: req.body.numero_tarjeta || `411111111111${Date.now().toString().slice(-4)}`,
+      M_limite_credito: limite,
+      M_saldo_utilizado: saldo,
+      M_saldo_disponible: limite - saldo,
+      M_tasa_interes: 0.32,
+      F_emision: new Date().toISOString().slice(0, 10),
+      F_vencimiento: vencimiento.toISOString().slice(0, 10),
+      N_dia_corte: 15,
+      N_dia_pago: 30,
+      D_estado: req.body.estado === '0' ? 'Bloqueada' : (req.body.estado || 'Activa'),
+    });
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas WHERE id_tarjeta = @id;', [
+      { name: 'id', type: sql.Int, value: id },
     ]);
     res.status(201).json({ data: result.recordset[0], message: 'Tarjeta creada' });
   } catch (err) { next(err); }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', [
+  idParam(),
+  optionalNonEmptyBody('numero_tarjeta', { max: 30 }),
+  optionalMoneyBody('limite_credito', { min: 0 }),
+  optionalMoneyBody('saldo_actual', { min: 0 }),
+  optionalNonEmptyBody('estado', { max: 40 }),
+  handleValidation,
+], async (req, res, next) => {
   try {
-    const result = await db.query(`
-      UPDATE dbo.TarjetaCredito
-      SET D_num_tarjeta = COALESCE(@numero, D_num_tarjeta),
-          M_limite_credito = COALESCE(@limite, M_limite_credito),
-          M_saldo_utilizado = COALESCE(@saldo, M_saldo_utilizado),
-          M_saldo_disponible = COALESCE(@limite, M_limite_credito) - COALESCE(@saldo, M_saldo_utilizado),
-          D_estado = COALESCE(@estado, D_estado)
-      OUTPUT INSERTED.C_tarjeta AS id_tarjeta, 8 AS id_producto, 8 AS tipo_tarjeta,
-             INSERTED.D_num_tarjeta AS numero_tarjeta, INSERTED.M_limite_credito AS limite_credito,
-             INSERTED.M_saldo_utilizado AS saldo_actual, INSERTED.D_estado AS estado
-      WHERE C_tarjeta = @id;
-    `, [
-      { name: 'id', type: sql.Int, value: parseInt(req.params.id) },
-      { name: 'numero', type: sql.NVarChar(19), value: req.body.numero_tarjeta || null },
-      { name: 'limite', type: sql.Decimal(12, 2), value: req.body.limite_credito ? parseFloat(req.body.limite_credito) : null },
-      { name: 'saldo', type: sql.Decimal(12, 2), value: req.body.saldo_actual ? parseFloat(req.body.saldo_actual) : null },
-      { name: 'estado', type: sql.NVarChar(20), value: req.body.estado === '0' ? 'Bloqueada' : (req.body.estado || null) }
+    const payload = {};
+    if (req.body.numero_tarjeta !== undefined) payload.D_num_tarjeta = req.body.numero_tarjeta || null;
+    if (req.body.limite_credito !== undefined) payload.M_limite_credito = parseFloat(req.body.limite_credito);
+    if (req.body.saldo_actual !== undefined) payload.M_saldo_utilizado = parseFloat(req.body.saldo_actual);
+    if (req.body.limite_credito !== undefined || req.body.saldo_actual !== undefined) {
+      const actual = await db.query('SELECT M_limite_credito, M_saldo_utilizado FROM dbo.TarjetaCredito WHERE C_tarjeta = @id;', [
+        { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
+      ]);
+      const row = actual.recordset[0] || {};
+      const nuevoLimite = payload.M_limite_credito !== undefined ? payload.M_limite_credito : Number(row.M_limite_credito || 0);
+      const nuevoSaldo = payload.M_saldo_utilizado !== undefined ? payload.M_saldo_utilizado : Number(row.M_saldo_utilizado || 0);
+      payload.M_saldo_disponible = nuevoLimite - nuevoSaldo;
+    }
+    if (req.body.estado !== undefined) payload.D_estado = req.body.estado === '0' ? 'Bloqueada' : req.body.estado;
+
+    await updateRecord('TarjetaCredito', 'C_tarjeta', req.params.id, payload);
+    const result = await db.query('SELECT * FROM dbo.vw_api_tarjetas WHERE id_tarjeta = @id;', [
+      { name: 'id', type: sql.Int, value: parseInt(req.params.id, 10) },
     ]);
     if (!result.recordset.length) return res.status(404).json({ error: 'Tarjeta no encontrada' });
     res.json({ data: result.recordset[0], message: 'Tarjeta actualizada' });
   } catch (err) { next(err); }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', [idParam(), handleValidation], async (req, res, next) => {
   try {
-    await db.query(`DELETE FROM dbo.TarjetaCredito WHERE C_tarjeta = @id;`, [{ name: 'id', type: sql.Int, value: parseInt(req.params.id) }]);
+    await deleteRecord('TarjetaCredito', 'C_tarjeta', req.params.id);
     res.json({ message: 'Tarjeta eliminada' });
   } catch (err) { next(err); }
 });
